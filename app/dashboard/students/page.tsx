@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from "../../../components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
+} from "../../../components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,21 +20,21 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "../../../components/ui/alert-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "../../../components/ui/dropdown-menu"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "../../../components/ui/card"
 import {
   Table,
   TableBody,
@@ -42,23 +42,23 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "../../../components/ui/table"
+import { Input } from "../../../components/ui/input"
+import { Label } from "../../../components/ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "../../../components/ui/select"
 import { MoreHorizontal, Pencil, PlusCircle, Trash2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "../../../hooks/use-toast"
 import {
   students as initialStudents,
   classes as initialClasses,
-} from "@/lib/data"
-import type { Student, Class } from "@/lib/definitions"
+} from "../../../lib/data"
+import type { Student, Class } from "../../../lib/definitions"
 
 export default function StudentsPage() {
   const [studentList, setStudentList] = useState<Student[]>(initialStudents)

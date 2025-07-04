@@ -7,7 +7,7 @@
  * - GenerateFeedbackOutput - The return type for the generateFeedback function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '../genkit';
 import {z} from 'zod';
 
 const GenerateFeedbackInputSchema = z.object({

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Pie, PieChart, ResponsiveContainer, Cell, Tooltip } from "recharts"
-import type { ClassWeeklySummary } from "@/lib/definitions"
+import type { ClassWeeklySummary } from "../lib/definitions"
 import {
   Download,
   FilePieChart,
@@ -32,14 +32,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "./ui/dropdown-menu"
 import { Separator } from "./ui/separator"
 import {
   ChartContainer,
   ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
-} from "@/components/ui/chart"
+} from "./ui/chart"
 
 type ClassReportCardProps = {
   report: ClassWeeklySummary | null

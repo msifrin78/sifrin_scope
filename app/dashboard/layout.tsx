@@ -1,11 +1,11 @@
 import React from "react"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { MainNav } from "@/components/main-nav"
+import { DashboardHeader } from "../../components/dashboard-header"
+import { MainNav } from "../../components/main-nav"
 import {
   Sidebar,
   SidebarProvider,
   SidebarInset,
-} from "@/components/ui/sidebar"
+} from "../../components/ui/sidebar"
 
 export default function DashboardLayout({
   children,

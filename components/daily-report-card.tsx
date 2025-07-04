@@ -1,10 +1,10 @@
 "use client"
 
-import type { DailyLog } from "@/lib/definitions"
+import type { DailyLog } from "../lib/definitions"
 import {
   calculateEngagementScore,
   calculateParticipationScore,
-} from "@/lib/scoring"
+} from "../lib/scoring"
 import { Download, FileText, Printer } from "lucide-react"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
@@ -13,7 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "./ui/dropdown-menu"
 import { Separator } from "./ui/separator"
 
 type DailyReportCardProps = {

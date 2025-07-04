@@ -1,5 +1,5 @@
-import { DailyLogTable } from "@/components/daily-log-table"
-import { classes, students } from "@/lib/data"
+import { DailyLogTable } from "../../../../components/daily-log-table"
+import { classes, students } from "../../../../lib/data"
 import { notFound } from "next/navigation"
 
 export default function ClassLogPage({

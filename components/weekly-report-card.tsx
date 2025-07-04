@@ -1,6 +1,6 @@
 "use client"
 
-import type { WeeklySummary } from "@/lib/definitions"
+import type { WeeklySummary } from "../lib/definitions"
 import {
   Bot,
   Download,
@@ -16,7 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "./ui/dropdown-menu"
 import { Separator } from "./ui/separator"
 
 type WeeklyReportCardProps = {

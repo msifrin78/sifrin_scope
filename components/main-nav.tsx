@@ -7,8 +7,8 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-} from "@/components/ui/sidebar"
-import { classes } from "@/lib/data"
+} from "./ui/sidebar"
+import { classes } from "../lib/data"
 import { Separator } from "./ui/separator"
 
 export function MainNav() {

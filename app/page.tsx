@@ -1,4 +1,4 @@
-import { LoginForm } from "@/components/login-form"
+import { LoginForm } from "../components/login-form"
 import { BookOpenCheck } from "lucide-react"
 import Image from "next/image"
 

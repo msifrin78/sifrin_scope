@@ -6,18 +6,18 @@ import type {
   DailyLog,
   ParticipationDetails,
   EngagementDetails,
-} from "@/lib/definitions"
+} from "../lib/definitions"
 import {
   calculateEngagementScore,
   calculateParticipationScore,
-} from "@/lib/scoring"
+} from "../lib/scoring"
 import { Button } from "./ui/button"
 import { Checkbox } from "./ui/checkbox"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "./ui/popover"
 import {
   Table,
   TableBody,
@@ -27,7 +27,7 @@ import {
   TableRow,
 } from "./ui/table"
 import { Textarea } from "./ui/textarea"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "../hooks/use-toast"
 import { Calendar as CalendarIcon, Save } from "lucide-react"
 import { Slider } from "./ui/slider"
 import { Label } from "./ui/label"
