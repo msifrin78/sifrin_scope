@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from "./ui/button"
 import {
   Card,
   CardContent,
@@ -10,14 +10,14 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "./ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "./ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "./ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,12 +35,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast"
-import { useData } from "@/context/data-context"
-import type { DailyLog, Student, Class } from "@/lib/definitions"
+} from "./ui/alert-dialog"
+import { Input } from "./ui/input"
+import { Label } from "./ui/label"
+import { useToast } from "../hooks/use-toast"
+import { useData } from "../context/data-context"
+import type { DailyLog, Student, Class } from "../lib/definitions"
 import {
   ArrowRight,
   UserCog,

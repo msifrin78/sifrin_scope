@@ -6,19 +6,19 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import * as XLSX from "xlsx"
 import { format } from "date-fns"
-import { WeeklyReportCard } from "@/components/weekly-report-card"
-import { ClassReportCard } from "@/components/class-report-card"
-import { DailyReportCard } from "@/components/daily-report-card"
-import { Button } from "@/components/ui/button"
+import { WeeklyReportCard } from "./weekly-report-card"
+import { ClassReportCard } from "./class-report-card"
+import { DailyReportCard } from "./daily-report-card"
+import { Button } from "./ui/button"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useData } from "@/context/data-context"
+} from "./ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs"
+import { useData } from "../context/data-context"
 import {
   Calendar as CalendarIcon,
   CalendarDays,
@@ -26,7 +26,7 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "../hooks/use-toast"
 import type {
   WeeklySummary,
   ClassWeeklySummary,
@@ -34,22 +34,22 @@ import type {
   DailyLog,
   Student,
   Class,
-} from "@/lib/definitions"
+} from "../lib/definitions"
 import {
   calculateEngagementScore,
   calculateParticipationScore,
-} from "@/lib/scoring"
+} from "../lib/scoring"
 import {
   generateFeedback,
   type GenerateFeedbackInput,
-} from "@/ai/flows/generate-feedback-flow"
+} from "../ai/flows/generate-feedback-flow"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { Label } from "@/components/ui/label"
+} from "./ui/popover"
+import { Calendar } from "./ui/calendar"
+import { Label } from "./ui/label"
 import {
   Card,
   CardContent,
@@ -57,7 +57,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "./ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,7 +67,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "./ui/alert-dialog"
 
 export function ReportsClient() {
   const { classes, students, dailyLogs, setDailyLogs, isDataLoaded } = useData()
