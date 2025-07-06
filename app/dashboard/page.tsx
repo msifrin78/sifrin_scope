@@ -2,8 +2,9 @@
 'use client';
 
 import dynamic from 'next/dynamic'
+import { DashboardClient } from '../../components/dashboard-client';
 
-const DashboardClient = dynamic(() => import('../../components/dashboard-client').then((mod) => mod.DashboardClient), { 
+const DynamicDashboardClient = dynamic(() => import('../../components/dashboard-client').then(mod => mod.DashboardClient), { 
   ssr: false,
   loading: () => (
     <div className="space-y-6">
@@ -18,5 +19,5 @@ const DashboardClient = dynamic(() => import('../../components/dashboard-client'
 })
 
 export default function DashboardPage() {
-  return <DashboardClient />
+  return <DynamicDashboardClient />
 }
