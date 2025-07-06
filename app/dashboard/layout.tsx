@@ -1,4 +1,6 @@
 
+"use client"
+
 import React from "react"
 import { DashboardHeader } from "../../components/dashboard-header"
 import { MainNav } from "../../components/main-nav"
