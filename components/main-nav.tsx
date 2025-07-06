@@ -1,7 +1,13 @@
 
 "use client"
 
-import { BarChart, GraduationCap, LayoutDashboard, Users } from "lucide-react"
+import {
+  BarChart,
+  GraduationCap,
+  LayoutDashboard,
+  Users,
+  Settings,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -20,6 +26,7 @@ export function MainNav() {
     { href: "/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
     { href: "/dashboard/students", icon: <Users />, label: "Students" },
     { href: "/dashboard/reports", icon: <BarChart />, label: "Reports" },
+    { href: "/dashboard/settings", icon: <Settings />, label: "Settings" },
   ]
 
   return (

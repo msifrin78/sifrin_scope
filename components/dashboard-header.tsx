@@ -1,3 +1,4 @@
+
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Button } from "./ui/button"
 import {
@@ -8,15 +9,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
-import { BarChart, BookOpenCheck, Home, Users } from "lucide-react"
+import { BarChart, BookOpenCheck, Home, Users, Settings } from "lucide-react"
 import Link from "next/link"
 import { SidebarTrigger } from "./ui/sidebar"
+import { useData } from "../context/data-context"
 
 type DashboardHeaderProps = {
   isSidebar?: boolean
 }
 
 export function DashboardHeader({ isSidebar = false }: DashboardHeaderProps) {
+  const { profilePicture } = useData()
+
   if (isSidebar) {
     return (
       <header className="flex h-16 shrink-0 items-center border-b px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
@@ -64,9 +68,8 @@ export function DashboardHeader({ isSidebar = false }: DashboardHeaderProps) {
               <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
                   <AvatarImage
-                    src="https://placehold.co/40x40.png"
+                    src={profilePicture || undefined}
                     alt="Teacher avatar"
-                    data-ai-hint="teacher portrait"
                   />
                   <AvatarFallback>T</AvatarFallback>
                 </Avatar>
@@ -76,7 +79,12 @@ export function DashboardHeader({ isSidebar = false }: DashboardHeaderProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>

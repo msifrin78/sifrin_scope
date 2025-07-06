@@ -22,6 +22,8 @@ interface DataContextProps {
   setStudents: React.Dispatch<React.SetStateAction<Student[]>>;
   dailyLogs: DailyLog[];
   setDailyLogs: React.Dispatch<React.SetStateAction<DailyLog[]>>;
+  profilePicture: string | null;
+  setProfilePicture: React.Dispatch<React.SetStateAction<string | null>>;
   isDataLoaded: boolean;
 }
 
@@ -51,6 +53,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [classes, setClasses] = useState<Class[]>(initialClasses);
   const [students, setStudents] = useState<Student[]>(initialStudents);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>(initialDailyLogs);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Effect to load data from localStorage after initial render on the client
@@ -69,6 +72,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (storedDailyLogs) {
       setDailyLogs(storedDailyLogs);
     }
+
+    const storedProfilePicture = getFromStorage<string>('profilePicture');
+    if (storedProfilePicture) {
+        // In case the stored value is the string "null"
+        if (storedProfilePicture !== 'null') {
+            setProfilePicture(storedProfilePicture);
+        }
+    }
+
 
     setIsDataLoaded(true); // Signal that data has been loaded
   }, []);
@@ -104,6 +116,17 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [dailyLogs, isDataLoaded]);
 
+  useEffect(() => {
+    if (isDataLoaded) {
+      try {
+        localStorage.setItem('profilePicture', JSON.stringify(profilePicture));
+      } catch (error) {
+        console.warn('Could not save profilePicture to localStorage', error);
+      }
+    }
+  }, [profilePicture, isDataLoaded]);
+
+
   return (
     <DataContext.Provider
       value={{
@@ -113,6 +136,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setStudents,
         dailyLogs,
         setDailyLogs,
+        profilePicture,
+        setProfilePicture,
         isDataLoaded,
       }}
     >

@@ -29,7 +29,7 @@ import {
 } from "./ui/table"
 import { Textarea } from "./ui/textarea"
 import { useToast } from "../hooks/use-toast"
-import { Calendar as CalendarIcon, Save } from "lucide-react"
+import { Save } from "lucide-react"
 import { Slider } from "./ui/slider"
 import { Label } from "./ui/label"
 import {
@@ -71,12 +71,20 @@ const participationCategories: {
   { id: "initiative", label: "Initiative" },
 ]
 
-export function DailyLogTable({ students }: { students: Student[] }) {
+export function DailyLogTable({
+  students,
+  selectedDate,
+}: {
+  students: Student[]
+  selectedDate: string
+}) {
   const { toast } = useToast()
   const { dailyLogs, setDailyLogs } = useData()
-  const [date] = useState(new Date().toISOString().split("T")[0])
+  const date = selectedDate
 
-  const [logs, setLogs] = useState<Record<string, DailyLogState>>(() => {
+  const [logs, setLogs] = useState<Record<string, DailyLogState>>({})
+
+  useEffect(() => {
     const initialLogs: Record<string, DailyLogState> = {}
     students.forEach((student) => {
       const existingLog = dailyLogs.find(
@@ -92,28 +100,8 @@ export function DailyLogTable({ students }: { students: Student[] }) {
         initialLogs[student.id] = JSON.parse(JSON.stringify(initialLogState))
       }
     })
-    return initialLogs
-  })
-  
-  useEffect(() => {
-    const newLogsState: Record<string, DailyLogState> = {};
-    students.forEach((student) => {
-      const existingLog = dailyLogs.find(
-        (l) => l.studentId === student.id && l.date === date
-      );
-      if (existingLog) {
-        newLogsState[student.id] = {
-          participation: existingLog.participation,
-          engagement: existingLog.engagement,
-          comments: existingLog.comments,
-        };
-      } else {
-        newLogsState[student.id] = JSON.parse(JSON.stringify(initialLogState));
-      }
-    });
-    setLogs(newLogsState);
-  }, [date, dailyLogs, students]);
-
+    setLogs(initialLogs)
+  }, [date, dailyLogs, students])
 
   const handleParticipationChange = (
     studentId: string,
@@ -184,12 +172,7 @@ export function DailyLogTable({ students }: { students: Student[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <CalendarIcon className="mr-2 h-4 w-4" /> Today
-          </Button>
-        </div>
+      <div className="flex items-center justify-end">
         <Button onClick={handleSave}>
           <Save className="mr-2 h-4 w-4" /> Save Logs
         </Button>
