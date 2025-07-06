@@ -1,3 +1,6 @@
+
+'use client';
+
 import dynamic from 'next/dynamic'
 
 const DashboardClient = dynamic(() => import('@/components/dashboard-client').then((mod) => mod.DashboardClient), { 
