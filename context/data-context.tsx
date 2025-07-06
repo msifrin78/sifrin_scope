@@ -56,13 +56,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   // Effect to load data from localStorage after initial render on the client
   useEffect(() => {
     const storedClasses = getFromStorage<Class[]>('classes');
-    setClasses(storedClasses || initialClasses);
+    if (storedClasses) {
+      setClasses(storedClasses);
+    }
 
     const storedStudents = getFromStorage<Student[]>('students');
-    setStudents(storedStudents || initialStudents);
+    if (storedStudents) {
+      setStudents(storedStudents);
+    }
 
     const storedDailyLogs = getFromStorage<DailyLog[]>('dailyLogs');
-    setDailyLogs(storedDailyLogs || initialDailyLogs);
+    if (storedDailyLogs) {
+      setDailyLogs(storedDailyLogs);
+    }
 
     setIsDataLoaded(true); // Signal that data has been loaded
   }, []);
@@ -122,4 +128,3 @@ export const useData = () => {
   }
   return context;
 };
-
