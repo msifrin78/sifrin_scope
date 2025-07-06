@@ -1,6 +1,7 @@
+
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type {
   Student,
   DailyLog,
@@ -38,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select"
+import { useData } from "../context/data-context"
 
 type DailyLogState = Omit<DailyLog, "id" | "studentId" | "date">
 
@@ -70,13 +72,48 @@ const participationCategories: {
 ]
 
 export function DailyLogTable({ students }: { students: Student[] }) {
-  const [logs, setLogs] = useState<Record<string, DailyLogState>>(() =>
-    students.reduce((acc, student) => {
-      acc[student.id] = JSON.parse(JSON.stringify(initialLogState)) // Deep copy
-      return acc
-    }, {} as Record<string, DailyLogState>)
-  )
   const { toast } = useToast()
+  const { dailyLogs, setDailyLogs } = useData()
+  const [date] = useState(new Date().toISOString().split("T")[0])
+
+  const [logs, setLogs] = useState<Record<string, DailyLogState>>(() => {
+    const initialLogs: Record<string, DailyLogState> = {}
+    students.forEach((student) => {
+      const existingLog = dailyLogs.find(
+        (l) => l.studentId === student.id && l.date === date
+      )
+      if (existingLog) {
+        initialLogs[student.id] = {
+          participation: existingLog.participation,
+          engagement: existingLog.engagement,
+          comments: existingLog.comments,
+        }
+      } else {
+        initialLogs[student.id] = JSON.parse(JSON.stringify(initialLogState))
+      }
+    })
+    return initialLogs
+  })
+  
+  useEffect(() => {
+    const newLogsState: Record<string, DailyLogState> = {};
+    students.forEach((student) => {
+      const existingLog = dailyLogs.find(
+        (l) => l.studentId === student.id && l.date === date
+      );
+      if (existingLog) {
+        newLogsState[student.id] = {
+          participation: existingLog.participation,
+          engagement: existingLog.engagement,
+          comments: existingLog.comments,
+        };
+      } else {
+        newLogsState[student.id] = JSON.parse(JSON.stringify(initialLogState));
+      }
+    });
+    setLogs(newLogsState);
+  }, [date, dailyLogs, students]);
+
 
   const handleParticipationChange = (
     studentId: string,
@@ -120,8 +157,25 @@ export function DailyLogTable({ students }: { students: Student[] }) {
   }
 
   const handleSave = () => {
-    // This is where you would send the data to Firebase
-    console.log("Saving logs:", logs)
+    const newOrUpdatedLogs: DailyLog[] = Object.entries(logs).map(
+      ([studentId, logState]) => {
+        return {
+          id: `L-${studentId}-${date}`, // Predictable ID for easy updates
+          studentId,
+          date,
+          ...logState,
+        }
+      }
+    )
+
+    const studentIdsInTable = students.map((s) => s.id)
+    const otherLogs = dailyLogs.filter((log) => {
+      // Keep logs that are NOT for today for the students in this class
+      return !(log.date === date && studentIdsInTable.includes(log.studentId))
+    })
+
+    setDailyLogs([...otherLogs, ...newOrUpdatedLogs])
+
     toast({
       title: "Logs Saved",
       description: "Today's records have been successfully saved.",

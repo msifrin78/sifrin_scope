@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from "react"
@@ -54,15 +55,11 @@ import {
 } from "../../../components/ui/select"
 import { MoreHorizontal, Pencil, PlusCircle, Trash2 } from "lucide-react"
 import { useToast } from "../../../hooks/use-toast"
-import {
-  students as initialStudents,
-  classes as initialClasses,
-} from "../../../lib/data"
+import { useData } from "../../../context/data-context"
 import type { Student, Class } from "../../../lib/definitions"
 
 export default function StudentsPage() {
-  const [studentList, setStudentList] = useState<Student[]>(initialStudents)
-  const [classList, setClassList] = useState<Class[]>(initialClasses)
+  const { students, setStudents, classes, setClasses, isDataLoaded } = useData()
 
   // Add Student State
   const [newStudentName, setNewStudentName] = useState("")
@@ -89,7 +86,7 @@ export default function StudentsPage() {
   const { toast } = useToast()
 
   const getClassName = (classId: string) => {
-    return classList.find((c) => c.id === classId)?.name || "Unassigned"
+    return classes.find((c) => c.id === classId)?.name || "Unassigned"
   }
 
   // Populate edit form when a student is selected for editing
@@ -129,7 +126,7 @@ export default function StudentsPage() {
       studentId: newStudentId,
       classId: newStudentClassId,
     }
-    setStudentList((prev) => [...prev, newStudent])
+    setStudents((prev) => [...prev, newStudent])
     toast({
       title: "Student Added",
       description: `${newStudentName} has been added.`,
@@ -157,7 +154,7 @@ export default function StudentsPage() {
       name: newClassName,
       lessonsPerWeek: lessonsCount,
     }
-    setClassList((prev) => [...prev, newClass])
+    setClasses((prev) => [...prev, newClass])
     toast({
       title: "Class Added",
       description: `${newClassName} has been added.`,
@@ -170,7 +167,7 @@ export default function StudentsPage() {
   const handleEditStudent = (e: React.FormEvent) => {
     e.preventDefault()
     if (!studentToEdit) return
-    setStudentList((prevList) =>
+    setStudents((prevList) =>
       prevList.map((s) =>
         s.id === studentToEdit.id
           ? {
@@ -191,7 +188,7 @@ export default function StudentsPage() {
 
   const handleDeleteStudent = () => {
     if (!studentToDelete) return
-    setStudentList((prevList) =>
+    setStudents((prevList) =>
       prevList.filter((s) => s.id !== studentToDelete.id)
     )
     toast({
@@ -199,6 +196,19 @@ export default function StudentsPage() {
       description: `${studentToDelete.name} has been removed from the roster.`,
     })
     setStudentToDelete(null)
+  }
+
+  if (!isDataLoaded) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold md:text-4xl">Students</h1>
+          <p className="text-muted-foreground">
+            Loading student and class data...
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -321,7 +331,7 @@ export default function StudentsPage() {
                         <SelectValue placeholder="Select a class" />
                       </SelectTrigger>
                       <SelectContent>
-                        {classList.map((c) => (
+                        {classes.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
                           </SelectItem>
@@ -356,7 +366,7 @@ export default function StudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {studentList.map((student) => (
+              {students.map((student) => (
                 <TableRow key={student.id}>
                   <TableCell className="font-medium">{student.name}</TableCell>
                   <TableCell>{student.studentId || "N/A"}</TableCell>
@@ -439,7 +449,7 @@ export default function StudentsPage() {
                     <SelectValue placeholder="Select a class" />
                   </SelectTrigger>
                   <SelectContent>
-                    {classList.map((c) => (
+                    {classes.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from "react"
@@ -38,11 +39,7 @@ import {
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { useToast } from "../../hooks/use-toast"
-import {
-  classes as initialClasses,
-  students as initialStudents,
-  dailyLogs as initialDailyLogs,
-} from "../../lib/data"
+import { useData } from "../../context/data-context"
 import type { DailyLog, Student, Class } from "../../lib/definitions"
 import {
   ArrowRight,
@@ -55,9 +52,8 @@ import {
 import Link from "next/link"
 
 export default function DashboardPage() {
-  const [classList, setClassList] = useState<Class[]>(initialClasses)
-  const [studentList, setStudentList] = useState<Student[]>(initialStudents)
-  const [logList, setLogList] = useState<DailyLog[]>(initialDailyLogs)
+  const { classes, setClasses, students, setStudents, dailyLogs, setDailyLogs, isDataLoaded } =
+    useData()
 
   // Edit Class State
   const [classToEdit, setClassToEdit] = useState<Class | null>(null)
@@ -107,7 +103,7 @@ export default function DashboardPage() {
     startOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)) // Monday as start of week
     startOfWeek.setHours(0, 0, 0, 0)
 
-    const studentLogs = logList.filter(
+    const studentLogs = dailyLogs.filter(
       (log) =>
         log.studentId === studentId && new Date(log.date) >= startOfWeek
     )
@@ -119,8 +115,11 @@ export default function DashboardPage() {
   }
 
   const getClassStats = (classId: string) => {
-    const currentClass = classList.find((c) => c.id === classId)!
-    const classStudents = studentList.filter((s) => s.classId === classId)
+    const currentClass = classes.find((c) => c.id === classId)
+    if (!currentClass)
+      return { totalStudents: 0, studentsWithWarnings: 0 }
+      
+    const classStudents = students.filter((s) => s.classId === classId)
     const atRiskThreshold = currentClass.lessonsPerWeek * 2.4
 
     const studentsWithWarnings = classStudents.filter(
@@ -147,7 +146,7 @@ export default function DashboardPage() {
       return
     }
 
-    setClassList((prevList) =>
+    setClasses((prevList) =>
       prevList.map((c) =>
         c.id === classToEdit.id
           ? {
@@ -168,21 +167,34 @@ export default function DashboardPage() {
   const handleDeleteClass = () => {
     if (!classToDelete) return
 
-    const studentIdsToDelete = studentList
+    const studentIdsToDelete = students
       .filter((s) => s.classId === classToDelete.id)
       .map((s) => s.id)
 
-    setLogList((prev) =>
+    setDailyLogs((prev) =>
       prev.filter((l) => !studentIdsToDelete.includes(l.studentId))
     )
-    setStudentList((prev) => prev.filter((s) => s.classId !== classToDelete.id))
-    setClassList((prev) => prev.filter((c) => c.id !== classToDelete.id))
+    setStudents((prev) => prev.filter((s) => s.classId !== classToDelete.id))
+    setClasses((prev) => prev.filter((c) => c.id !== classToDelete.id))
 
     toast({
       title: "Class Deleted",
       description: `${classToDelete.name} and all its students and records have been removed.`,
     })
     setClassToDelete(null)
+  }
+
+  if (!isDataLoaded) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Loading class data...
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -194,7 +206,7 @@ export default function DashboardPage() {
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {classList.map((c) => {
+        {classes.map((c) => {
           const stats = getClassStats(c.id)
           return (
             <Card key={c.id} className="flex flex-col">

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -17,11 +18,7 @@ import {
   SelectValue,
 } from "../../../components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
-import {
-  students as initialStudents,
-  dailyLogs as initialDailyLogs,
-  classes as initialClasses,
-} from "../../../lib/data"
+import { useData } from "../../../context/data-context"
 import {
   Calendar as CalendarIcon,
   CalendarDays,
@@ -73,7 +70,7 @@ import {
 } from "../../../components/ui/alert-dialog"
 
 export default function ReportsPage() {
-  const [logList, setLogList] = useState<DailyLog[]>(initialDailyLogs)
+  const { classes, students, dailyLogs, setDailyLogs, isDataLoaded } = useData()
 
   // Weekly Student Report State
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
@@ -125,18 +122,18 @@ export default function ReportsPage() {
     }
 
     const weekStarts = [
-      ...new Set(logList.map((log) => getStartOfWeek(new Date(log.date)))),
+      ...new Set(dailyLogs.map((log) => getStartOfWeek(new Date(log.date)))),
     ]
     weekStarts.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
 
     setAvailableWeeks(weekStarts)
-    if (weekStarts.length > 0) {
+    if (weekStarts.length > 0 && !selectedWeek) {
       setSelectedWeek(weekStarts[0])
     }
-    if (initialClasses.length > 0) {
-      setSelectedClassId(initialClasses[0].id)
+    if (classes.length > 0 && !selectedClassId) {
+      setSelectedClassId(classes[0].id)
     }
-  }, [logList])
+  }, [dailyLogs, classes, selectedWeek, selectedClassId])
 
   const handleGenerateReport = () => {
     if (!selectedStudentId || !selectedWeek) {
@@ -149,15 +146,15 @@ export default function ReportsPage() {
     }
     setIsLoading(true)
 
-    const student = initialStudents.find((s) => s.id === selectedStudentId)!
-    const studentClass = initialClasses.find((c) => c.id === student.classId)!
+    const student = students.find((s) => s.id === selectedStudentId)!
+    const studentClass = classes.find((c) => c.id === student.classId)!
 
     const start = new Date(selectedWeek)
     const end = new Date(start)
     end.setDate(start.getDate() + 6)
     end.setHours(23, 59, 59, 999)
 
-    const studentLogs = logList.filter((log) => {
+    const studentLogs = dailyLogs.filter((log) => {
       const logDate = new Date(log.date)
       return (
         log.studentId === selectedStudentId && logDate >= start && logDate <= end
@@ -209,15 +206,15 @@ export default function ReportsPage() {
     end.setDate(start.getDate() + 6)
     end.setHours(23, 59, 59, 999)
 
-    const currentClass = initialClasses.find((c) => c.id === selectedClassId)!
-    const classStudents = initialStudents.filter(
+    const currentClass = classes.find((c) => c.id === selectedClassId)!
+    const classStudents = students.filter(
       (s) => s.classId === selectedClassId
     )
     const atRiskStudents: AtRiskStudent[] = []
     const atRiskThreshold = currentClass.lessonsPerWeek * 2.4
 
     for (const student of classStudents) {
-      const studentLogs = logList.filter((log) => {
+      const studentLogs = dailyLogs.filter((log) => {
         const logDate = new Date(log.date)
         return (
           log.studentId === student.id && logDate >= start && logDate <= end
@@ -276,7 +273,7 @@ export default function ReportsPage() {
     }
     setIsDailyReportLoading(true)
     const dateString = selectedDate.toISOString().split("T")[0]
-    const log = logList.find(
+    const log = dailyLogs.find(
       (l) => l.studentId === selectedDailyStudentId && l.date === dateString
     )
     setDailyReportData(log || null) // Set to null if no log found
@@ -288,7 +285,7 @@ export default function ReportsPage() {
     setIsGeneratingFeedback(true)
 
     try {
-      const student = initialStudents.find((s) => s.id === reportData.studentId)
+      const student = students.find((s) => s.id === reportData.studentId)
       if (!student) throw new Error("Student not found")
 
       const flowInput: GenerateFeedbackInput = {
@@ -320,7 +317,7 @@ export default function ReportsPage() {
 
   const confirmDeleteStudentLogs = () => {
     if (!studentToDeleteLogs) return
-    setLogList((prev) =>
+    setDailyLogs((prev) =>
       prev.filter((log) => log.studentId !== studentToDeleteLogs.id)
     )
     toast({
@@ -332,11 +329,11 @@ export default function ReportsPage() {
 
   const confirmDeleteClassLogs = () => {
     if (!classToDeleteLogs) return
-    const studentIdsInClass = initialStudents
+    const studentIdsInClass = students
       .filter((s) => s.classId === classToDeleteLogs.id)
       .map((s) => s.id)
 
-    setLogList((prev) =>
+    setDailyLogs((prev) =>
       prev.filter((log) => !studentIdsInClass.includes(log.studentId))
     )
     toast({
@@ -616,12 +613,25 @@ export default function ReportsPage() {
     )
   }
 
-  const selectedStudent = initialStudents.find(
+  const selectedStudent = students.find(
     (s) => s.id === selectedStudentId
   )
-  const selectedDailyStudent = initialStudents.find(
+  const selectedDailyStudent = students.find(
     (s) => s.id === selectedDailyStudentId
   )
+
+  if (!isDataLoaded) {
+    return (
+     <div className="space-y-6">
+       <div>
+         <h1 className="text-3xl font-bold md:text-4xl">Reports</h1>
+         <p className="text-muted-foreground">
+           Loading data...
+         </p>
+       </div>
+     </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -651,7 +661,7 @@ export default function ReportsPage() {
                   <SelectValue placeholder="Select a student" />
                 </SelectTrigger>
                 <SelectContent>
-                  {initialStudents.map((student) => (
+                  {students.map((student) => (
                     <SelectItem key={student.id} value={student.id}>
                       {student.name}
                     </SelectItem>
@@ -716,7 +726,7 @@ export default function ReportsPage() {
                   <SelectValue placeholder="Select a class" />
                 </SelectTrigger>
                 <SelectContent>
-                  {initialClasses.map((c) => (
+                  {classes.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
@@ -780,7 +790,7 @@ export default function ReportsPage() {
                   <SelectValue placeholder="Select a student" />
                 </SelectTrigger>
                 <SelectContent>
-                  {initialStudents.map((student) => (
+                  {students.map((student) => (
                     <SelectItem key={student.id} value={student.id}>
                       {student.name}
                     </SelectItem>
@@ -863,7 +873,7 @@ export default function ReportsPage() {
                     <Label>Student</Label>
                     <Select
                       onValueChange={(id) => {
-                        const student = initialStudents.find(
+                        const student = students.find(
                           (s) => s.id === id
                         )
                         setStudentToDeleteLogs(student ?? null)
@@ -873,7 +883,7 @@ export default function ReportsPage() {
                         <SelectValue placeholder="Select a student" />
                       </SelectTrigger>
                       <SelectContent>
-                        {initialStudents.map((student) => (
+                        {students.map((student) => (
                           <SelectItem key={student.id} value={student.id}>
                             {student.name}
                           </SelectItem>
@@ -901,7 +911,7 @@ export default function ReportsPage() {
                     <Label>Class</Label>
                     <Select
                       onValueChange={(id) => {
-                        const cls = initialClasses.find((c) => c.id === id)
+                        const cls = classes.find((c) => c.id === id)
                         setClassToDeleteLogs(cls ?? null)
                       }}
                     >
@@ -909,7 +919,7 @@ export default function ReportsPage() {
                         <SelectValue placeholder="Select a class" />
                       </SelectTrigger>
                       <SelectContent>
-                        {initialClasses.map((c) => (
+                        {classes.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
                           </SelectItem>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { BarChart, GraduationCap, LayoutDashboard, Users } from "lucide-react"
@@ -8,11 +9,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "./ui/sidebar"
-import { classes } from "../lib/data"
+import { useData } from "../context/data-context"
 import { Separator } from "./ui/separator"
 
 export function MainNav() {
   const pathname = usePathname()
+  const { classes } = useData()
 
   const navItems = [
     { href: "/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
