@@ -3,7 +3,7 @@
 
 import dynamic from 'next/dynamic'
 
-const ReportsClient = dynamic(() => import('@/components/reports-client').then((mod) => mod.ReportsClient), { 
+const ReportsClient = dynamic(() => import('../../components/reports-client').then((mod) => mod.ReportsClient), { 
   ssr: false,
   loading: () => (
     <div className="space-y-6">

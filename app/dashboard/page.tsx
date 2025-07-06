@@ -3,7 +3,7 @@
 
 import dynamic from 'next/dynamic'
 
-const DashboardClient = dynamic(() => import('@/components/dashboard-client').then((mod) => mod.DashboardClient), { 
+const DashboardClient = dynamic(() => import('../../components/dashboard-client').then((mod) => mod.DashboardClient), { 
   ssr: false,
   loading: () => (
     <div className="space-y-6">
