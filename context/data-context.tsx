@@ -2,11 +2,6 @@
 'use client';
 
 import type { Class, DailyLog, Student } from '../lib/definitions';
-import {
-  classes as initialClasses,
-  dailyLogs as initialLogs,
-  students as initialStudents,
-} from '../lib/data';
 import React, {
   createContext,
   useContext,
@@ -14,34 +9,21 @@ import React, {
   useEffect,
   type ReactNode,
 } from 'react';
-
-// Helper to get data from localStorage
-const getFromStorage = <T>(key: string, fallback: T): T => {
-  if (typeof window === 'undefined') {
-    return fallback;
-  }
-  const item = window.localStorage.getItem(key);
-  if (item === null || item === 'undefined') {
-    return fallback;
-  }
-  try {
-    return JSON.parse(item);
-  } catch (e) {
-    console.error(`Failed to parse ${key} from localStorage`, e);
-    return fallback;
-  }
-};
-
-// Helper to set data to localStorage
-const setToStorage = <T>(key: string, value: T) => {
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
-      console.error(`Failed to set ${key} in localStorage`, e);
-    }
-  }
-};
+import { auth, db } from '../lib/firebase';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import {
+  collection,
+  doc,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  getDocs,
+  writeBatch,
+  setDoc,
+} from 'firebase/firestore';
 
 interface DataContextProps {
   classes: Class[];
@@ -56,7 +38,11 @@ interface DataContextProps {
   addStudent: (newStudent: Omit<Student, 'id'>) => Promise<void>;
   updateStudent: (id: string, updatedData: Partial<Student>) => Promise<void>;
   deleteStudent: (id: string) => Promise<void>;
-  saveDailyLogs: (logsToSave: Record<string, Omit<DailyLog, 'id' | 'studentId' | 'date'>>, studentIds: string[], date: string) => Promise<void>;
+  saveDailyLogs: (
+    logsToSave: Record<string, Omit<DailyLog, 'id' | 'studentId' | 'date'>>,
+    studentIds: string[],
+    date: string
+  ) => Promise<void>;
   deleteStudentLogs: (studentId: string) => Promise<void>;
   deleteClassLogs: (classId: string) => Promise<void>;
 }
@@ -64,6 +50,7 @@ interface DataContextProps {
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [classes, setClasses] = useState<Class[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
@@ -71,107 +58,193 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   useEffect(() => {
-    // Load initial data from localStorage or fallback to mock data
-    setClasses(getFromStorage('classes', initialClasses));
-    setStudents(getFromStorage('students', initialStudents));
-    setDailyLogs(getFromStorage('dailyLogs', initialLogs));
-    setProfilePicture(getFromStorage('profilePicture', null));
-    setIsDataLoaded(true);
+    // If firebase isn't configured, we don't do anything.
+    if (!auth) {
+      setIsDataLoaded(true);
+      return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (!user) {
+        // User is signed out, clear all data
+        setClasses([]);
+        setStudents([]);
+        setDailyLogs([]);
+        setProfilePicture(null);
+        setIsDataLoaded(true);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  const updateClasses = (newClasses: Class[]) => {
-    setClasses(newClasses);
-    setToStorage('classes', newClasses);
-  }
-  
-  const updateStudents = (newStudents: Student[]) => {
-    setStudents(newStudents);
-    setToStorage('students', newStudents);
-  }
+  useEffect(() => {
+    // If there's no user or db, we don't fetch data.
+    if (!currentUser || !db) {
+        // Mark as loaded if there's no user, so the app doesn't hang on a loading screen.
+        if (!currentUser) setIsDataLoaded(true);
+        return;
+    };
 
-  const updateDailyLogs = (newLogs: DailyLog[]) => {
-    setDailyLogs(newLogs);
-    setToStorage('dailyLogs', newLogs);
+    setIsDataLoaded(false);
+
+    const getCollectionRef = (col: string) =>
+      collection(db, 'users', currentUser.uid, col);
+
+    // Set up listeners for all data collections
+    const unsubscribeProfile = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setProfilePicture(docSnap.data().profilePicture || null);
+      } else {
+        // If the user profile doesn't exist, create one.
+        setDoc(doc(db, 'users', currentUser.uid), { email: currentUser.email, profilePicture: null });
+      }
+    });
+
+    const unsubscribeClasses = onSnapshot(getCollectionRef('classes'), (snapshot) => {
+      setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Class[]);
+    });
+
+    const unsubscribeStudents = onSnapshot(getCollectionRef('students'), (snapshot) => {
+      setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[]);
+    });
+
+    const unsubscribeLogs = onSnapshot(getCollectionRef('dailyLogs'), (snapshot) => {
+      setDailyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DailyLog[]);
+      setIsDataLoaded(true); // Mark as loaded after the main data is fetched
+    });
+
+    // Cleanup function to unsubscribe from all listeners
+    return () => {
+      unsubscribeProfile();
+      unsubscribeClasses();
+      unsubscribeStudents();
+      unsubscribeLogs();
+    };
+  }, [currentUser]);
+
+  const getCollectionRef = (col: string) => {
+    if (!currentUser || !db) throw new Error('User not authenticated');
+    return collection(db, 'users', currentUser.uid, col);
+  };
+  
+  const getDocRef = (col: string, id: string) => {
+    if (!currentUser || !db) throw new Error('User not authenticated');
+    return doc(db, 'users', currentUser.uid, col, id);
   }
 
   const updateProfilePicture = async (url: string | null) => {
-    setProfilePicture(url);
-    setToStorage('profilePicture', url);
+    if (!currentUser || !db) return;
+    await setDoc(doc(db, 'users', currentUser.uid), { profilePicture: url }, { merge: true });
   };
-  
+
   const addClass = async (newClass: Omit<Class, 'id'>) => {
-    const classWithId: Class = { ...newClass, id: `C${Date.now()}` };
-    updateClasses([...classes, classWithId]);
+    await addDoc(getCollectionRef('classes'), newClass);
   };
 
   const updateClass = async (id: string, updatedData: Partial<Class>) => {
-    const updatedClasses = classes.map(c => c.id === id ? { ...c, ...updatedData } : c);
-    updateClasses(updatedClasses);
+    await updateDoc(getDocRef('classes', id), updatedData);
   };
 
   const deleteClass = async (id: string) => {
-    const studentsInClass = students.filter(s => s.classId === id).map(s => s.id);
-    const remainingStudents = students.filter(s => s.classId !== id);
-    const remainingLogs = dailyLogs.filter(l => !studentsInClass.includes(l.studentId));
-    const remainingClasses = classes.filter(c => c.id !== id);
+    if (!currentUser || !db) return;
+    const batch = writeBatch(db);
 
-    updateClasses(remainingClasses);
-    updateStudents(remainingStudents);
-    updateDailyLogs(remainingLogs);
+    // 1. Delete the class doc
+    batch.delete(getDocRef('classes', id));
+
+    // 2. Find and delete students in the class
+    const studentsQuery = query(getCollectionRef('students'), where('classId', '==', id));
+    const studentDocs = await getDocs(studentsQuery);
+    const studentIds = studentDocs.docs.map(d => d.id);
+    studentDocs.forEach(doc => batch.delete(doc.ref));
+
+    // 3. Find and delete all logs for those students (in chunks)
+    if (studentIds.length > 0) {
+      for (let i = 0; i < studentIds.length; i += 30) {
+        const chunk = studentIds.slice(i, i + 30);
+        const logsQuery = query(getCollectionRef('dailyLogs'), where('studentId', 'in', chunk));
+        const logDocs = await getDocs(logsQuery);
+        logDocs.forEach(doc => batch.delete(doc.ref));
+      }
+    }
+    await batch.commit();
   };
 
   const addStudent = async (newStudent: Omit<Student, 'id'>) => {
-    const studentWithId: Student = { ...newStudent, id: `S${Date.now()}` };
-    updateStudents([...students, studentWithId]);
+    await addDoc(getCollectionRef('students'), newStudent);
   };
 
   const updateStudent = async (id: string, updatedData: Partial<Student>) => {
-    const updatedStudents = students.map(s => s.id === id ? { ...s, ...updatedData } : s);
-    updateStudents(updatedStudents);
+    await updateDoc(getDocRef('students', id), updatedData);
   };
 
+  const deleteLogsForStudent = async (studentId: string, batch: ReturnType<typeof writeBatch>) => {
+    const logsQuery = query(getCollectionRef('dailyLogs'), where('studentId', '==', studentId));
+    const logDocs = await getDocs(logsQuery);
+    logDocs.forEach(doc => batch.delete(doc.ref));
+  };
+  
   const deleteStudent = async (id: string) => {
-    const updatedStudents = students.filter(s => s.id !== id);
-    const updatedLogs = dailyLogs.filter(l => l.studentId !== id);
-    
-    updateStudents(updatedStudents);
-    updateDailyLogs(updatedLogs);
+    if (!currentUser || !db) return;
+    const batch = writeBatch(db);
+    // Delete student doc
+    batch.delete(getDocRef('students', id));
+    // Delete their logs
+    await deleteLogsForStudent(id, batch);
+    await batch.commit();
   };
 
-  const saveDailyLogs = async (logsToSave: Record<string, Omit<DailyLog, 'id' | 'studentId' | 'date'>>, studentIds: string[], date: string) => {
-    const logsForOtherDays = dailyLogs.filter(l => l.date !== date);
-    const logsForToday = dailyLogs.filter(l => l.date === date);
+  const saveDailyLogs = async (
+    logsToSave: Record<string, Omit<DailyLog, 'id' | 'studentId' | 'date'>>,
+    studentIdsInTable: string[],
+    date: string
+  ) => {
+    if (!currentUser || !db || studentIdsInTable.length === 0) return;
+    const batch = writeBatch(db);
+    const logsColRef = getCollectionRef('dailyLogs');
 
-    const updatedLogsForToday = studentIds.map(studentId => {
-      const logUpdates = logsToSave[studentId];
-      const existingLog = logsForToday.find(l => l.studentId === studentId);
-      
-      if (logUpdates) {
-        if (existingLog) {
-          return { ...existingLog, ...logUpdates };
+    const logsQuery = query(logsColRef, where('date', '==', date), where('studentId', 'in', studentIdsInTable));
+    const existingLogsSnap = await getDocs(logsQuery);
+    const existingLogsMap = new Map(existingLogsSnap.docs.map(d => [d.data().studentId, d.id]));
+
+    for (const studentId of studentIdsInTable) {
+      const logData = logsToSave[studentId];
+      if (logData) {
+        const existingLogId = existingLogsMap.get(studentId);
+        if (existingLogId) {
+          batch.update(getDocRef('dailyLogs', existingLogId), logData);
+        } else {
+          const newDocRef = doc(logsColRef); // Auto-generates ID
+          batch.set(newDocRef, { ...logData, studentId, date });
         }
-        return {
-          id: `L${Date.now()}-${studentId}`,
-          studentId,
-          date,
-          ...logUpdates,
-        };
       }
-      return existingLog;
-    }).filter((l): l is DailyLog => l !== undefined);
-    
-    updateDailyLogs([...logsForOtherDays, ...updatedLogsForToday]);
+    }
+    await batch.commit();
   };
 
   const deleteStudentLogs = async (studentId: string) => {
-    const updatedLogs = dailyLogs.filter(l => l.studentId !== studentId);
-    updateDailyLogs(updatedLogs);
+    if (!currentUser || !db) return;
+    const batch = writeBatch(db);
+    await deleteLogsForStudent(studentId, batch);
+    await batch.commit();
   };
   
   const deleteClassLogs = async (classId: string) => {
-    const studentsInClass = students.filter(s => s.classId === classId).map(s => s.id);
-    const updatedLogs = dailyLogs.filter(l => !studentsInClass.includes(l.studentId));
-    updateDailyLogs(updatedLogs);
+    if (!currentUser || !db) return;
+    const batch = writeBatch(db);
+    const studentsQuery = query(getCollectionRef('students'), where('classId', '==', classId));
+    const studentDocs = await getDocs(studentsQuery);
+    const studentIds = studentDocs.docs.map(d => d.id);
+    
+    if (studentIds.length > 0) {
+      for (let i = 0; i < studentIds.length; i += 30) {
+        const chunk = studentIds.slice(i, i + 30);
+        const logsQuery = query(getCollectionRef('dailyLogs'), where('studentId', 'in', chunk));
+        const logDocs = await getDocs(logsQuery);
+        logDocs.forEach(doc => batch.delete(doc.ref));
+      }
+    }
+    await batch.commit();
   };
 
   return (
