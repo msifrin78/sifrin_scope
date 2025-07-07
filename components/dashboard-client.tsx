@@ -40,7 +40,7 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { useToast } from "../hooks/use-toast"
 import { useData } from "../context/data-context"
-import type { DailyLog, Student, Class } from "../lib/definitions"
+import type { DailyLog, Class } from "../lib/definitions"
 import {
   ArrowRight,
   UserCog,
@@ -52,8 +52,7 @@ import {
 import Link from "next/link"
 
 export function DashboardClient() {
-  const { classes, setClasses, students, setStudents, dailyLogs, setDailyLogs, isDataLoaded } =
-    useData()
+  const { classes, students, dailyLogs, isDataLoaded, updateClass, deleteClass } = useData()
 
   // Edit Class State
   const [classToEdit, setClassToEdit] = useState<Class | null>(null)
@@ -132,7 +131,7 @@ export function DashboardClient() {
     }
   }
 
-  const handleEditClass = (e: React.FormEvent) => {
+  const handleEditClass = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!classToEdit) return
     const lessonsCount = parseInt(editClassLessons, 10)
@@ -146,17 +145,11 @@ export function DashboardClient() {
       return
     }
 
-    setClasses((prevList) =>
-      prevList.map((c) =>
-        c.id === classToEdit.id
-          ? {
-              ...c,
-              name: editClassName,
-              lessonsPerWeek: lessonsCount,
-            }
-          : c
-      )
-    )
+    await updateClass(classToEdit.id, {
+        name: editClassName,
+        lessonsPerWeek: lessonsCount,
+    });
+    
     toast({
       title: "Class Updated",
       description: `${editClassName}'s information has been updated.`,
@@ -164,18 +157,10 @@ export function DashboardClient() {
     setClassToEdit(null)
   }
 
-  const handleDeleteClass = () => {
+  const handleDeleteClass = async () => {
     if (!classToDelete) return
 
-    const studentIdsToDelete = students
-      .filter((s) => s.classId === classToDelete.id)
-      .map((s) => s.id)
-
-    setDailyLogs((prev) =>
-      prev.filter((l) => !studentIdsToDelete.includes(l.studentId))
-    )
-    setStudents((prev) => prev.filter((s) => s.classId !== classToDelete.id))
-    setClasses((prev) => prev.filter((c) => c.id !== classToDelete.id))
+    await deleteClass(classToDelete.id);
 
     toast({
       title: "Class Deleted",

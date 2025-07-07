@@ -59,7 +59,15 @@ import { useData } from "../../../context/data-context"
 import type { Student, Class } from "../../../lib/definitions"
 
 export default function StudentsPage() {
-  const { students, setStudents, classes, setClasses, isDataLoaded } = useData()
+  const { 
+    students, 
+    classes, 
+    isDataLoaded,
+    addClass,
+    addStudent,
+    updateStudent,
+    deleteStudent
+  } = useData()
 
   // Add Student State
   const [newStudentName, setNewStudentName] = useState("")
@@ -110,7 +118,7 @@ export default function StudentsPage() {
     }
   }, [studentToDelete])
 
-  const handleAddStudent = (e: React.FormEvent) => {
+  const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newStudentName || !newStudentClassId) {
       toast({
@@ -120,13 +128,12 @@ export default function StudentsPage() {
       })
       return
     }
-    const newStudent: Student = {
-      id: `S${Date.now()}`,
+    const newStudent: Omit<Student, 'id'> = {
       name: newStudentName,
       studentId: newStudentId,
       classId: newStudentClassId,
     }
-    setStudents((prev) => [...prev, newStudent])
+    await addStudent(newStudent);
     toast({
       title: "Student Added",
       description: `${newStudentName} has been added.`,
@@ -137,7 +144,7 @@ export default function StudentsPage() {
     setIsStudentDialogOpen(false)
   }
 
-  const handleAddClass = (e: React.FormEvent) => {
+  const handleAddClass = async (e: React.FormEvent) => {
     e.preventDefault()
     const lessonsCount = parseInt(newClassLessonsPerWeek, 10)
     if (!newClassName || isNaN(lessonsCount) || lessonsCount <= 0) {
@@ -149,12 +156,11 @@ export default function StudentsPage() {
       })
       return
     }
-    const newClass: Class = {
-      id: `C${Date.now()}`,
+    const newClass: Omit<Class, 'id'> = {
       name: newClassName,
       lessonsPerWeek: lessonsCount,
     }
-    setClasses((prev) => [...prev, newClass])
+    await addClass(newClass);
     toast({
       title: "Class Added",
       description: `${newClassName} has been added.`,
@@ -164,21 +170,16 @@ export default function StudentsPage() {
     setIsClassDialogOpen(false)
   }
 
-  const handleEditStudent = (e: React.FormEvent) => {
+  const handleEditStudent = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!studentToEdit) return
-    setStudents((prevList) =>
-      prevList.map((s) =>
-        s.id === studentToEdit.id
-          ? {
-              ...s,
-              name: editStudentName,
-              studentId: editStudentId,
-              classId: editStudentClassId,
-            }
-          : s
-      )
-    )
+    
+    await updateStudent(studentToEdit.id, {
+      name: editStudentName,
+      studentId: editStudentId,
+      classId: editStudentClassId,
+    });
+    
     toast({
       title: "Student Updated",
       description: `${editStudentName}'s information has been updated.`,
@@ -186,11 +187,11 @@ export default function StudentsPage() {
     setStudentToEdit(null)
   }
 
-  const handleDeleteStudent = () => {
+  const handleDeleteStudent = async () => {
     if (!studentToDelete) return
-    setStudents((prevList) =>
-      prevList.filter((s) => s.id !== studentToDelete.id)
-    )
+    
+    await deleteStudent(studentToDelete.id);
+
     toast({
       title: "Student Deleted",
       description: `${studentToDelete.name} has been removed from the roster.`,

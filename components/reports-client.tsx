@@ -70,7 +70,7 @@ import {
 } from "./ui/alert-dialog"
 
 export function ReportsClient() {
-  const { classes, students, dailyLogs, setDailyLogs, isDataLoaded } = useData()
+  const { classes, students, dailyLogs, isDataLoaded, deleteStudentLogs, deleteClassLogs } = useData()
 
   // Weekly Student Report State
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
@@ -315,11 +315,9 @@ export function ReportsClient() {
     }
   }
 
-  const confirmDeleteStudentLogs = () => {
-    if (!studentToDeleteLogs) return
-    setDailyLogs((prev) =>
-      prev.filter((log) => log.studentId !== studentToDeleteLogs.id)
-    )
+  const confirmDeleteStudentLogs = async () => {
+    if (!studentToDeleteLogs) return;
+    await deleteStudentLogs(studentToDeleteLogs.id);
     toast({
       title: "Records Deleted",
       description: `All logs for ${studentToDeleteLogs.name} have been deleted.`,
@@ -327,15 +325,9 @@ export function ReportsClient() {
     setStudentToDeleteLogs(null)
   }
 
-  const confirmDeleteClassLogs = () => {
-    if (!classToDeleteLogs) return
-    const studentIdsInClass = students
-      .filter((s) => s.classId === classToDeleteLogs.id)
-      .map((s) => s.id)
-
-    setDailyLogs((prev) =>
-      prev.filter((log) => !studentIdsInClass.includes(log.studentId))
-    )
+  const confirmDeleteClassLogs = async () => {
+    if (!classToDeleteLogs) return;
+    await deleteClassLogs(classToDeleteLogs.id);
     toast({
       title: "Records Deleted",
       description: `All logs for ${classToDeleteLogs.name} have been deleted.`,
@@ -878,6 +870,7 @@ export function ReportsClient() {
                         )
                         setStudentToDeleteLogs(student ?? null)
                       }}
+                      value={studentToDeleteLogs?.id ?? ""}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a student" />
@@ -914,6 +907,7 @@ export function ReportsClient() {
                         const cls = classes.find((c) => c.id === id)
                         setClassToDeleteLogs(cls ?? null)
                       }}
+                       value={classToDeleteLogs?.id ?? ""}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a class" />
@@ -943,7 +937,10 @@ export function ReportsClient() {
       </Tabs>
       <AlertDialog
         open={isDeleteStudentLogsAlertOpen}
-        onOpenChange={(open) => !open && setStudentToDeleteLogs(null)}
+        onOpenChange={(open) => {
+            setIsDeleteStudentLogsAlertOpen(open);
+            if (!open) setStudentToDeleteLogs(null);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -967,7 +964,10 @@ export function ReportsClient() {
 
       <AlertDialog
         open={isDeleteClassLogsAlertOpen}
-        onOpenChange={(open) => !open && setClassToDeleteLogs(null)}
+        onOpenChange={(open) => {
+            setIsDeleteClassLogsAlertOpen(open)
+            if (!open) setClassToDeleteLogs(null)
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>

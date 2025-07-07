@@ -1,5 +1,9 @@
 import type { Class, Student, DailyLog } from "./definitions"
 
+// This file now serves as a fallback or for initial seeding if needed,
+// but the primary data source is now Firestore.
+// The data is left here for reference or potential future use.
+
 export const classes: Class[] = [
   { id: "C1", name: "Period 1 - English 101", lessonsPerWeek: 5 },
   { id: "C2", name: "Period 3 - Creative Writing", lessonsPerWeek: 3 },

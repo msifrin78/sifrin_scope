@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '../../../context/data-context';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -12,9 +12,13 @@ import { useToast } from '../../../hooks/use-toast';
 import { User, Upload } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { profilePicture, setProfilePicture } = useData();
-  const [newImage, setNewImage] = useState<string | null>(profilePicture);
+  const { profilePicture, updateProfilePicture } = useData();
+  const [newImage, setNewImage] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    setNewImage(profilePicture);
+  }, [profilePicture]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -27,8 +31,8 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveChanges = () => {
-    setProfilePicture(newImage);
+  const handleSaveChanges = async () => {
+    await updateProfilePicture(newImage);
     toast({
       title: 'Settings Saved',
       description: 'Your profile picture has been updated.',

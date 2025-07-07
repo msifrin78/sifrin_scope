@@ -49,19 +49,18 @@ export default function ClassLogPage({
     return null
   }
 
-  const getWeekDates = () => {
+  const getLessonDates = () => {
     const today = new Date()
     const weekStart = startOfWeek(today, { weekStartsOn: 1 }) // Monday
     const dates = []
-    for (let i = 0; i < 5; i++) {
-      // Create buttons for a 5-day school week
+    // Create date entries for each lesson in the week, based on class settings.
+    for (let i = 0; i < currentClass.lessonsPerWeek; i++) {
       dates.push(addDays(weekStart, i))
     }
     return dates
   }
 
-  const weekDates = getWeekDates()
-  const lessonDays = weekDates.slice(0, currentClass.lessonsPerWeek)
+  const lessonDays = getLessonDates()
 
   return (
     <div className="space-y-6">

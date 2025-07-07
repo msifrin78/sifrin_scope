@@ -79,7 +79,7 @@ export function DailyLogTable({
   selectedDate: string
 }) {
   const { toast } = useToast()
-  const { dailyLogs, setDailyLogs } = useData()
+  const { dailyLogs, saveDailyLogs } = useData()
   const date = selectedDate
 
   const [logs, setLogs] = useState<Record<string, DailyLogState>>({})
@@ -144,25 +144,9 @@ export function DailyLogTable({
     }))
   }
 
-  const handleSave = () => {
-    const newOrUpdatedLogs: DailyLog[] = Object.entries(logs).map(
-      ([studentId, logState]) => {
-        return {
-          id: `L-${studentId}-${date}`, // Predictable ID for easy updates
-          studentId,
-          date,
-          ...logState,
-        }
-      }
-    )
-
+  const handleSave = async () => {
     const studentIdsInTable = students.map((s) => s.id)
-    const otherLogs = dailyLogs.filter((log) => {
-      // Keep logs that are NOT for today for the students in this class
-      return !(log.date === date && studentIdsInTable.includes(log.studentId))
-    })
-
-    setDailyLogs([...otherLogs, ...newOrUpdatedLogs])
+    await saveDailyLogs(logs, studentIdsInTable, date);
 
     toast({
       title: "Logs Saved",
