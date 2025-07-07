@@ -1,8 +1,9 @@
+
 'use client';
 
 import dynamic from 'next/dynamic'
 
-const DynamicReportsClient = dynamic(() => import('../../../components/reports-client').then((mod) => mod.ReportsClient), { 
+const ReportsClient = dynamic(() => import('../../../components/reports-client').then(mod => mod.ReportsClient), { 
   ssr: false,
   loading: () => (
     <div className="space-y-6">
@@ -17,5 +18,5 @@ const DynamicReportsClient = dynamic(() => import('../../../components/reports-c
 })
 
 export default function ReportsPage() {
-  return <DynamicReportsClient />
+  return <ReportsClient />;
 }
