@@ -53,7 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select"
-import { MoreHorizontal, Pencil, PlusCircle, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil, PlusCircle, Trash2, ArrowUp, ArrowDown } from "lucide-react"
 import { useToast } from "../../../hooks/use-toast"
 import { useData } from "../../../context/data-context"
 import type { Student, Class } from "../../../lib/definitions"
@@ -69,9 +69,12 @@ export default function StudentsPage() {
     deleteStudent
   } = useData()
 
+  // Component State
+  const [filterClassId, setFilterClassId] = useState("all")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  
   // Add Student State
   const [newStudentName, setNewStudentName] = useState("")
-  const [newStudentId, setNewStudentId] = useState("")
   const [newStudentClassId, setNewStudentClassId] = useState("")
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false)
 
@@ -84,7 +87,6 @@ export default function StudentsPage() {
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null)
   const [isEditStudentDialogOpen, setIsEditStudentDialogOpen] = useState(false)
   const [editStudentName, setEditStudentName] = useState("")
-  const [editStudentId, setEditStudentId] = useState("")
   const [editStudentClassId, setEditStudentClassId] = useState("")
 
   // Delete Student State
@@ -101,7 +103,6 @@ export default function StudentsPage() {
   useEffect(() => {
     if (studentToEdit) {
       setEditStudentName(studentToEdit.name)
-      setEditStudentId(studentToEdit.studentId || "")
       setEditStudentClassId(studentToEdit.classId)
       setIsEditStudentDialogOpen(true)
     } else {
@@ -128,18 +129,16 @@ export default function StudentsPage() {
       })
       return
     }
-    const newStudent: Omit<Student, 'id'> = {
+    const newStudent: Omit<Student, 'id' | 'studentId'> = {
       name: newStudentName,
-      studentId: newStudentId,
       classId: newStudentClassId,
     }
-    await addStudent(newStudent);
+    await addStudent(newStudent as Omit<Student, 'id'>);
     toast({
       title: "Student Added",
       description: `${newStudentName} has been added.`,
     })
     setNewStudentName("")
-    setNewStudentId("")
     setNewStudentClassId("")
     setIsStudentDialogOpen(false)
   }
@@ -176,7 +175,6 @@ export default function StudentsPage() {
     
     await updateStudent(studentToEdit.id, {
       name: editStudentName,
-      studentId: editStudentId,
       classId: editStudentClassId,
     });
     
@@ -198,6 +196,22 @@ export default function StudentsPage() {
     })
     setStudentToDelete(null)
   }
+  
+  const handleSort = () => {
+    setSortOrder(current => (current === "asc" ? "desc" : "asc"));
+  };
+
+  const filteredStudents = students.filter(
+    (student) => filterClassId === "all" || student.classId === filterClassId
+  );
+
+  const sortedStudents = [...filteredStudents].sort((a, b) => {
+    const nameA = a.name.toLowerCase();
+    const nameB = b.name.toLowerCase();
+    if (nameA < nameB) return sortOrder === "asc" ? -1 : 1;
+    if (nameA > nameB) return sortOrder === "asc" ? 1 : -1;
+    return 0;
+  });
 
   if (!isDataLoaded) {
     return (
@@ -309,18 +323,6 @@ export default function StudentsPage() {
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="studentId" className="text-right">
-                      Student ID
-                    </Label>
-                    <Input
-                      id="studentId"
-                      placeholder="Optional"
-                      className="col-span-3"
-                      value={newStudentId}
-                      onChange={(e) => setNewStudentId(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="classId" className="text-right">
                       Class
                     </Label>
@@ -351,26 +353,47 @@ export default function StudentsPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Student Roster</CardTitle>
-          <CardDescription>
-            A list of all students currently enrolled.
-          </CardDescription>
+           <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Student Roster</CardTitle>
+              <CardDescription>
+                A list of all students currently enrolled.
+              </CardDescription>
+            </div>
+             <div className="flex items-center gap-2">
+                <Label htmlFor="class-filter" className="text-sm font-medium">Filter</Label>
+                <Select value={filterClassId} onValueChange={setFilterClassId}>
+                    <SelectTrigger id="class-filter" className="w-[200px]">
+                        <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Classes</SelectItem>
+                        {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+           </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Student ID</TableHead>
+                <TableHead className="w-[50px]">#</TableHead>
+                <TableHead>
+                   <Button variant="ghost" onClick={handleSort} className="-ml-4">
+                    Name
+                    {sortOrder === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />}
+                  </Button>
+                </TableHead>
                 <TableHead>Class</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {students.map((student) => (
+              {sortedStudents.map((student, index) => (
                 <TableRow key={student.id}>
+                  <TableCell>{index + 1}</TableCell>
                   <TableCell className="font-medium">{student.name}</TableCell>
-                  <TableCell>{student.studentId || "N/A"}</TableCell>
                   <TableCell>{getClassName(student.classId)}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -424,18 +447,6 @@ export default function StudentsPage() {
                   value={editStudentName}
                   onChange={(e) => setEditStudentName(e.target.value)}
                   required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-studentId" className="text-right">
-                  Student ID
-                </Label>
-                <Input
-                  id="edit-studentId"
-                  placeholder="Optional"
-                  className="col-span-3"
-                  value={editStudentId}
-                  onChange={(e) => setEditStudentId(e.target.value)}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">

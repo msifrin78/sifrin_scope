@@ -29,7 +29,7 @@ import {
 } from "./ui/table"
 import { Textarea } from "./ui/textarea"
 import { useToast } from "../hooks/use-toast"
-import { Save } from "lucide-react"
+import { Save, ArrowUp, ArrowDown } from "lucide-react"
 import { Slider } from "./ui/slider"
 import { Label } from "./ui/label"
 import {
@@ -83,6 +83,7 @@ export function DailyLogTable({
   const date = selectedDate
 
   const [logs, setLogs] = useState<Record<string, DailyLogState>>({})
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
 
   useEffect(() => {
     const initialLogs: Record<string, DailyLogState> = {}
@@ -153,6 +154,18 @@ export function DailyLogTable({
       description: "Today's records have been successfully saved.",
     })
   }
+  
+  const handleSort = () => {
+    setSortOrder(current => (current === "asc" ? "desc" : "asc"));
+  };
+
+  const sortedStudents = [...students].sort((a, b) => {
+    const nameA = a.name.toLowerCase();
+    const nameB = b.name.toLowerCase();
+    if (nameA < nameB) return sortOrder === "asc" ? -1 : 1;
+    if (nameA > nameB) return sortOrder === "asc" ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="space-y-4">
@@ -165,14 +178,20 @@ export function DailyLogTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[150px]">Student</TableHead>
+              <TableHead className="w-[50px]">#</TableHead>
+              <TableHead className="w-[200px]">
+                <Button variant="ghost" onClick={handleSort} className="-ml-4">
+                  Student
+                  {sortOrder === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />}
+                </Button>
+              </TableHead>
               <TableHead>Participation (20)</TableHead>
               <TableHead>Engagement (5)</TableHead>
               <TableHead className="w-[250px]">Comments</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {students.map((student) => {
+            {sortedStudents.map((student, index) => {
               const studentLog = logs[student.id]
               if (!studentLog) return null
 
@@ -185,6 +204,7 @@ export function DailyLogTable({
 
               return (
                 <TableRow key={student.id}>
+                  <TableCell>{index + 1}</TableCell>
                   <TableCell className="font-medium">{student.name}</TableCell>
                   <TableCell>
                     <Popover>
