@@ -109,14 +109,24 @@ export function DashboardClient() {
       name: newClassName,
       lessonsPerWeek: lessonsCount,
     }
-    await addClass(newClass);
-    toast({
-      title: "Class Added",
-      description: `${newClassName} has been added.`,
-    })
-    setNewClassName("")
-    setNewClassLessonsPerWeek("5")
-    setIsClassDialogOpen(false)
+    try {
+      await addClass(newClass);
+      toast({
+        title: "Class Added",
+        description: `${newClassName} has been added.`,
+      })
+      setNewClassName("")
+      setNewClassLessonsPerWeek("5")
+    } catch (error) {
+      console.error("Failed to add class:", error);
+      toast({
+        title: "Error",
+        description: "Could not add the class. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClassDialogOpen(false)
+    }
   }
 
   const calculateEngagementScore = (log: DailyLog) => {
@@ -178,16 +188,26 @@ export function DashboardClient() {
       return
     }
 
-    await updateClass(classToEdit.id, {
-        name: editClassName,
-        lessonsPerWeek: lessonsCount,
-    });
-    
-    toast({
-      title: "Class Updated",
-      description: `${editClassName}'s information has been updated.`,
-    })
-    setClassToEdit(null)
+    try {
+      await updateClass(classToEdit.id, {
+          name: editClassName,
+          lessonsPerWeek: lessonsCount,
+      });
+      
+      toast({
+        title: "Class Updated",
+        description: `${editClassName}'s information has been updated.`,
+      })
+    } catch (error) {
+      console.error("Failed to update class:", error);
+       toast({
+        title: "Error",
+        description: "Could not update the class. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setClassToEdit(null)
+    }
   }
 
   const handleDeleteClass = async () => {

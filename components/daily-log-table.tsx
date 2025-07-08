@@ -30,7 +30,6 @@ import {
 import { Textarea } from "./ui/textarea"
 import { useToast } from "../hooks/use-toast"
 import { Save, ArrowUp, ArrowDown } from "lucide-react"
-import { Slider } from "./ui/slider"
 import { Label } from "./ui/label"
 import {
   Select,
@@ -45,11 +44,8 @@ type DailyLogState = Omit<DailyLog, "id" | "studentId" | "date">
 
 const initialLogState: DailyLogState = {
   participation: {
-    amount: 4,
-    quality: 4,
-    listening: 4,
-    attitude: 4,
-    initiative: 4,
+    frequency: 10,
+    collaboration: 10,
   },
   engagement: {
     attendance: true,
@@ -60,15 +56,18 @@ const initialLogState: DailyLogState = {
   comments: "",
 }
 
-const participationCategories: {
-  id: keyof ParticipationDetails
-  label: string
-}[] = [
-  { id: "amount", label: "Amount" },
-  { id: "quality", label: "Quality" },
-  { id: "listening", label: "Listening" },
-  { id: "attitude", label: "Attitude" },
-  { id: "initiative", label: "Initiative" },
+const frequencyOptions = [
+  { value: 10, label: "Participated several times (-0)" },
+  { value: 7, label: "Participated only once (-3)" },
+  { value: 5, label: "Needed prompting (-5)" },
+  { value: 0, label: "Did not participate (-10)" },
+]
+
+const collaborationOptions = [
+  { value: 10, label: "Excellent collaboration (-0)" },
+  { value: 7, label: "Good collaboration (-3)" },
+  { value: 5, label: "Fair collaboration (-5)" },
+  { value: 0, label: "Poor/No collaboration (-10)" },
 ]
 
 export function DailyLogTable({
@@ -92,8 +91,12 @@ export function DailyLogTable({
         (l) => l.studentId === student.id && l.date === date
       )
       if (existingLog) {
+        // Ensure existing logs have the new participation structure
         initialLogs[student.id] = {
-          participation: existingLog.participation,
+          participation: {
+            frequency: existingLog.participation.frequency ?? 10,
+            collaboration: existingLog.participation.collaboration ?? 10,
+          },
           engagement: existingLog.engagement,
           comments: existingLog.comments,
         }
@@ -107,7 +110,7 @@ export function DailyLogTable({
   const handleParticipationChange = (
     studentId: string,
     field: keyof ParticipationDetails,
-    value: number[]
+    value: string
   ) => {
     setLogs((prevLogs) => ({
       ...prevLogs,
@@ -115,7 +118,7 @@ export function DailyLogTable({
         ...prevLogs[studentId],
         participation: {
           ...prevLogs[studentId].participation,
-          [field]: value[0],
+          [field]: Number(value),
         },
       },
     }))
@@ -227,29 +230,51 @@ export function DailyLogTable({
                           <h4 className="font-medium leading-none">
                             Participation Details
                           </h4>
-                          <div className="space-y-4">
-                            {participationCategories.map((cat) => (
-                              <div key={cat.id} className="space-y-2">
-                                <Label htmlFor={`${cat.id}-${student.id}`}>
-                                  {cat.label} (
-                                  {studentLog.participation[cat.id]})
-                                </Label>
-                                <Slider
-                                  id={`${cat.id}-${student.id}`}
-                                  min={0}
-                                  max={4}
-                                  step={1}
-                                  value={[studentLog.participation[cat.id]]}
-                                  onValueChange={(value) =>
-                                    handleParticipationChange(
-                                      student.id,
-                                      cat.id,
-                                      value
-                                    )
-                                  }
-                                />
-                              </div>
-                            ))}
+                           <div className="space-y-4">
+                            <div>
+                              <Label>Participation Frequency</Label>
+                              <Select
+                                value={String(studentLog.participation.frequency)}
+                                onValueChange={(v) =>
+                                  handleParticipationChange(
+                                    student.id,
+                                    "frequency",
+                                    v
+                                  )
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {frequencyOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                             <div>
+                              <Label>Quality &amp; Collaboration</Label>
+                              <Select
+                                value={String(studentLog.participation.collaboration)}
+                                onValueChange={(v) =>
+                                  handleParticipationChange(
+                                    student.id,
+                                    "collaboration",
+                                    v
+                                  )
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                   {collaborationOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                         </div>
                       </PopoverContent>

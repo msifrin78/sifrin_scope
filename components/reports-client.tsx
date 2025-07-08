@@ -548,7 +548,7 @@ export function ReportsClient() {
         [
           "Participation",
           `${participationScore} / 20`,
-          `Amount: ${participation.amount}, Quality: ${participation.quality}, Listening: ${participation.listening}, Attitude: ${participation.attitude}, Initiative: ${participation.initiative}`,
+          `Frequency: ${participation.frequency}/10, Collaboration: ${participation.collaboration}/10`,
         ],
         [
           "Engagement",
@@ -583,11 +583,8 @@ export function ReportsClient() {
       ["Comments", comments || "N/A"],
       [],
       ["Participation Details"],
-      ["Amount", participation.amount],
-      ["Quality", participation.quality],
-      ["Listening", participation.listening],
-      ["Attitude", participation.attitude],
-      ["Initiative", participation.initiative],
+      ["Frequency", participation.frequency],
+      ["Collaboration", participation.collaboration],
       [],
       ["Engagement Details"],
       ["Attendance", engagement.attendance],

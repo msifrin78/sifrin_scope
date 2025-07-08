@@ -12,11 +12,8 @@ export type Class = {
 }
 
 export type ParticipationDetails = {
-  amount: number // 0-4
-  quality: number // 0-4
-  listening: number // 0-4
-  attitude: number // 0-4
-  initiative: number // 0-4
+  frequency: number // 10, 7, 5, 0
+  collaboration: number // 10, 7, 5, 0
 }
 
 export type EngagementDetails = {
