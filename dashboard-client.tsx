@@ -117,6 +117,7 @@ export function DashboardClient() {
       })
       setNewClassName("")
       setNewClassLessonsPerWeek("5")
+      setIsClassDialogOpen(false) // Close dialog on success
     } catch (error) {
       console.error("Failed to add class:", error);
       toast({
@@ -124,8 +125,6 @@ export function DashboardClient() {
         description: "Could not add the class. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsClassDialogOpen(false)
     }
   }
 
