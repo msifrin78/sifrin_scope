@@ -64,10 +64,10 @@ const frequencyOptions = [
 ]
 
 const collaborationOptions = [
-  { value: 10, label: "Excellent collaboration (-0)" },
-  { value: 7, label: "Good collaboration (-3)" },
-  { value: 5, label: "Fair collaboration (-5)" },
-  { value: 0, label: "Poor/No collaboration (-10)" },
+  { value: 10, label: "Thoughtful contributions (-0)" },
+  { value: 7, label: "Distracted contribution (-3)" },
+  { value: 5, label: "Off topic (-5)" },
+  { value: 0, label: "Rude or disrespectful (-10)" },
 ]
 
 export function DailyLogTable({
@@ -337,10 +337,10 @@ export function DailyLogTable({
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="1">
-                                    Excellent (1)
+                                    Excellent (-0)
                                   </SelectItem>
-                                  <SelectItem value="0.5">Okay (0.5)</SelectItem>
-                                  <SelectItem value="0">Poor (0)</SelectItem>
+                                  <SelectItem value="0.5">Okay (-0.5)</SelectItem>
+                                  <SelectItem value="0">Poor (-1)</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -361,10 +361,10 @@ export function DailyLogTable({
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="1">
-                                    Excellent (1)
+                                    Excellent (-0)
                                   </SelectItem>
-                                  <SelectItem value="0.5">Okay (0.5)</SelectItem>
-                                  <SelectItem value="0">Poor (0)</SelectItem>
+                                  <SelectItem value="0.5">Okay (-0.5)</SelectItem>
+                                  <SelectItem value="0">Poor (-1)</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -385,10 +385,10 @@ export function DailyLogTable({
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="1">
-                                    Respectful (1)
+                                    Respectful (-0)
                                   </SelectItem>
                                   <SelectItem value="0">
-                                    Disrespectful (0)
+                                    Disrespectful (-1)
                                   </SelectItem>
                                 </SelectContent>
                               </Select>
