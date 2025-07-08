@@ -66,7 +66,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       if (!user) {
-        // User is signed out, clear all data
+        // User is signed out, clear all data and mark as loaded
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
@@ -80,8 +80,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // If there's no user or db, we don't fetch data.
     if (!currentUser || !db) {
-        // Mark as loaded if there's no user, so the app doesn't hang on a loading screen.
-        if (!currentUser) setIsDataLoaded(true);
         return;
     };
 
@@ -158,7 +156,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const studentIds = studentDocs.docs.map(d => d.id);
     studentDocs.forEach(doc => batch.delete(doc.ref));
 
-    // 3. Find and delete all logs for those students (in chunks)
+    // 3. Find and delete all logs for those students (in chunks of 30, a Firestore limitation)
     if (studentIds.length > 0) {
       for (let i = 0; i < studentIds.length; i += 30) {
         const chunk = studentIds.slice(i, i + 30);

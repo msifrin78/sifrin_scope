@@ -211,13 +211,21 @@ export function DashboardClient() {
   const handleDeleteClass = async () => {
     if (!classToDelete) return
 
-    await deleteClass(classToDelete.id);
-
-    toast({
-      title: "Class Deleted",
-      description: `${classToDelete.name} and all its students and records have been removed.`,
-    })
-    setClassToDelete(null)
+    try {
+      await deleteClass(classToDelete.id);
+      toast({
+        title: "Class Deleted",
+        description: `${classToDelete.name} and all its students and records have been removed.`,
+      })
+      setClassToDelete(null)
+    } catch (error) {
+       console.error("Failed to delete class:", error);
+       toast({
+        title: "Error",
+        description: "Could not delete the class. Please try again.",
+        variant: "destructive",
+      });
+    }
   }
 
   if (!isDataLoaded) {
@@ -283,7 +291,7 @@ export function DashboardClient() {
                       placeholder="e.g., 5"
                       className="col-span-3"
                       value={newClassLessonsPerWeek}
-                      onChange={(e) => setNewClassLessonsPerWeek(e.targe.value)}
+                      onChange={(e) => setNewClassLessonsPerWeek(e.target.value)}
                       required
                     />
                   </div>
