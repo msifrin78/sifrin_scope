@@ -115,8 +115,8 @@ export function DashboardClient() {
         title: "Class Added",
         description: `${newClassName} has been added.`,
       })
-      setNewClassName("")
-      setNewClassLessonsPerWeek("5")
+      setNewClassName('');
+      setNewClassLessonsPerWeek('5');
       setIsClassDialogOpen(false) // Close dialog on success
     } catch (error) {
       console.error("Failed to add class:", error);
@@ -197,6 +197,7 @@ export function DashboardClient() {
         title: "Class Updated",
         description: `${editClassName}'s information has been updated.`,
       })
+      setClassToEdit(null)
     } catch (error) {
       console.error("Failed to update class:", error);
        toast({
@@ -204,8 +205,6 @@ export function DashboardClient() {
         description: "Could not update the class. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setClassToEdit(null)
     }
   }
 
@@ -284,7 +283,7 @@ export function DashboardClient() {
                       placeholder="e.g., 5"
                       className="col-span-3"
                       value={newClassLessonsPerWeek}
-                      onChange={(e) => setNewClassLessonsPerWeek(e.target.value)}
+                      onChange={(e) => setNewClassLessonsPerWeek(e.targe.value)}
                       required
                     />
                   </div>
