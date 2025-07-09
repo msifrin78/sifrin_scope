@@ -52,12 +52,13 @@ import {
   PlusCircle,
 } from "lucide-react"
 import Link from "next/link"
+import { calculateEngagementScore } from "../lib/scoring"
 
 export function DashboardClient() {
   const { classes, students, dailyLogs, isDataLoaded, updateClass, deleteClass, addClass } = useData()
 
   // Add Class State
-  const [isClassDialogOpen, setIsClassDialogOpen] = useState(false)
+  const [isAddClassDialogOpen, setIsAddClassDialogOpen] = useState(false)
   const [newClassName, setNewClassName] = useState("")
   const [newClassLessonsPerWeek, setNewClassLessonsPerWeek] = useState("5")
 
@@ -93,6 +94,14 @@ export function DashboardClient() {
     }
   }, [classToDelete])
   
+  const handleAddClassDialogOpenChange = (open: boolean) => {
+    if (open) {
+      setNewClassName("");
+      setNewClassLessonsPerWeek("5");
+    }
+    setIsAddClassDialogOpen(open);
+  }
+  
   const handleAddClass = async (e: React.FormEvent) => {
     e.preventDefault()
     const lessonsCount = parseInt(newClassLessonsPerWeek, 10)
@@ -115,26 +124,10 @@ export function DashboardClient() {
         title: "Class Added",
         description: `${newClassName} has been added.`,
       })
-      setNewClassName('');
-      setNewClassLessonsPerWeek('5');
-      setIsClassDialogOpen(false) // Close dialog on success
+      setIsAddClassDialogOpen(false)
     } catch (error) {
       console.error("Failed to add class:", error);
-      toast({
-        title: "Error",
-        description: "Could not add the class. Please try again.",
-        variant: "destructive",
-      });
     }
-  }
-
-  const calculateEngagementScore = (log: DailyLog) => {
-    let score = 0
-    if (log.engagement.attendance) score += 2
-    score += log.engagement.preparedness
-    score += log.engagement.focus
-    score += log.engagement.respect
-    return score
   }
 
   const getWeeklyEngagementScore = (studentId: string) => {
@@ -150,7 +143,7 @@ export function DashboardClient() {
     )
 
     return studentLogs.reduce(
-      (acc, log) => acc + calculateEngagementScore(log),
+      (acc, log) => acc + calculateEngagementScore(log.engagement),
       0
     )
   }
@@ -199,12 +192,7 @@ export function DashboardClient() {
       })
       setClassToEdit(null)
     } catch (error) {
-      console.error("Failed to update class:", error);
-       toast({
-        title: "Error",
-        description: "Could not update the class. Please try again.",
-        variant: "destructive",
-      });
+       console.error("Failed to update class:", error);
     }
   }
 
@@ -220,11 +208,6 @@ export function DashboardClient() {
       setClassToDelete(null)
     } catch (error) {
        console.error("Failed to delete class:", error);
-       toast({
-        title: "Error",
-        description: "Could not delete the class. Please try again.",
-        variant: "destructive",
-      });
     }
   }
 
@@ -234,7 +217,7 @@ export function DashboardClient() {
         <div>
           <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground">
-            Loading class data...
+            Syncing data from the cloud...
           </p>
         </div>
       </div>
@@ -250,7 +233,7 @@ export function DashboardClient() {
             A high-level overview of your classes.
           </p>
         </div>
-        <Dialog open={isClassDialogOpen} onOpenChange={setIsClassDialogOpen}>
+        <Dialog open={isAddClassDialogOpen} onOpenChange={handleAddClassDialogOpenChange}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />

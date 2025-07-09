@@ -133,14 +133,18 @@ export default function StudentsPage() {
       name: newStudentName,
       classId: newStudentClassId,
     }
-    await addStudent(newStudent as Omit<Student, 'id'>);
-    toast({
-      title: "Student Added",
-      description: `${newStudentName} has been added.`,
-    })
-    setNewStudentName("")
-    setNewStudentClassId("")
-    setIsStudentDialogOpen(false)
+    try {
+      await addStudent(newStudent as Omit<Student, 'id'>);
+      toast({
+        title: "Student Added",
+        description: `${newStudentName} has been added.`,
+      })
+      setNewStudentName("")
+      setNewStudentClassId("")
+      setIsStudentDialogOpen(false)
+    } catch (error) {
+      console.error("Failed to add student:", error);
+    }
   }
 
   const handleAddClass = async (e: React.FormEvent) => {
@@ -159,42 +163,54 @@ export default function StudentsPage() {
       name: newClassName,
       lessonsPerWeek: lessonsCount,
     }
-    await addClass(newClass);
-    toast({
-      title: "Class Added",
-      description: `${newClassName} has been added.`,
-    })
-    setNewClassName("")
-    setNewClassLessonsPerWeek("5")
-    setIsClassDialogOpen(false)
+    try {
+      await addClass(newClass);
+      toast({
+        title: "Class Added",
+        description: `${newClassName} has been added.`,
+      })
+      setNewClassName("")
+      setNewClassLessonsPerWeek("5")
+      setIsClassDialogOpen(false)
+    } catch (error) {
+      console.error("Failed to add class:", error);
+    }
   }
 
   const handleEditStudent = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!studentToEdit) return
     
-    await updateStudent(studentToEdit.id, {
-      name: editStudentName,
-      classId: editStudentClassId,
-    });
-    
-    toast({
-      title: "Student Updated",
-      description: `${editStudentName}'s information has been updated.`,
-    })
-    setStudentToEdit(null)
+    try {
+      await updateStudent(studentToEdit.id, {
+        name: editStudentName,
+        classId: editStudentClassId,
+      });
+      
+      toast({
+        title: "Student Updated",
+        description: `${editStudentName}'s information has been updated.`,
+      })
+      setStudentToEdit(null)
+    } catch (error) {
+      console.error("Failed to update student:", error);
+    }
   }
 
   const handleDeleteStudent = async () => {
     if (!studentToDelete) return
     
-    await deleteStudent(studentToDelete.id);
+    try {
+      await deleteStudent(studentToDelete.id);
 
-    toast({
-      title: "Student Deleted",
-      description: `${studentToDelete.name} has been removed from the roster.`,
-    })
-    setStudentToDelete(null)
+      toast({
+        title: "Student Deleted",
+        description: `${studentToDelete.name} has been removed from the roster.`,
+      })
+      setStudentToDelete(null)
+    } catch (error) {
+      console.error("Failed to delete student:", error);
+    }
   }
   
   const handleSort = () => {

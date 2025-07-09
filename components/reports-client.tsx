@@ -317,22 +317,30 @@ export function ReportsClient() {
 
   const confirmDeleteStudentLogs = async () => {
     if (!studentToDeleteLogs) return;
-    await deleteStudentLogs(studentToDeleteLogs.id);
-    toast({
-      title: "Records Deleted",
-      description: `All logs for ${studentToDeleteLogs.name} have been deleted.`,
-    })
-    setStudentToDeleteLogs(null)
+    try {
+      await deleteStudentLogs(studentToDeleteLogs.id);
+      toast({
+        title: "Records Deleted",
+        description: `All logs for ${studentToDeleteLogs.name} have been deleted.`,
+      })
+      setStudentToDeleteLogs(null)
+    } catch (error) {
+      console.error("Failed to delete student logs:", error);
+    }
   }
 
   const confirmDeleteClassLogs = async () => {
     if (!classToDeleteLogs) return;
-    await deleteClassLogs(classToDeleteLogs.id);
-    toast({
-      title: "Records Deleted",
-      description: `All logs for ${classToDeleteLogs.name} have been deleted.`,
-    })
-    setClassToDeleteLogs(null)
+    try {
+      await deleteClassLogs(classToDeleteLogs.id);
+      toast({
+        title: "Records Deleted",
+        description: `All logs for ${classToDeleteLogs.name} have been deleted.`,
+      })
+      setClassToDeleteLogs(null)
+    } catch (error) {
+       console.error("Failed to delete class logs:", error);
+    }
   }
 
   const handleExportPDF = () => {
