@@ -18,7 +18,6 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../../components/ui/alert-dialog"
@@ -53,7 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select"
-import { MoreHorizontal, Pencil, PlusCircle, Trash2, ArrowUp, ArrowDown } from "lucide-react"
+import { MoreHorizontal, Pencil, PlusCircle, Trash2 } from "lucide-react"
 import { useToast } from "../../../hooks/use-toast"
 import { useData } from "../../../context/data-context"
 import type { Student, Class } from "../../../lib/definitions"
@@ -69,10 +68,6 @@ export default function StudentsPage() {
     deleteStudent
   } = useData()
 
-  // Component State
-  const [filterClassId, setFilterClassId] = useState("all")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
-  
   // Add Student State
   const [newStudentName, setNewStudentName] = useState("")
   const [newStudentClassId, setNewStudentClassId] = useState("")
@@ -94,10 +89,6 @@ export default function StudentsPage() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false)
 
   const { toast } = useToast()
-
-  const getClassName = (classId: string) => {
-    return classes.find((c) => c.id === classId)?.name || "Unassigned"
-  }
 
   // Populate edit form when a student is selected for editing
   useEffect(() => {
@@ -133,18 +124,14 @@ export default function StudentsPage() {
       name: newStudentName,
       classId: newStudentClassId,
     }
-    try {
-      await addStudent(newStudent as Omit<Student, 'id'>);
-      toast({
-        title: "Student Added",
-        description: `${newStudentName} has been added.`,
-      })
-      setNewStudentName("")
-      setNewStudentClassId("")
-      setIsStudentDialogOpen(false)
-    } catch (error) {
-      console.error("Failed to add student:", error);
-    }
+    await addStudent(newStudent as Omit<Student, 'id'>);
+    toast({
+      title: "Student Added",
+      description: `${newStudentName} has been added.`,
+    })
+    setNewStudentName("")
+    setNewStudentClassId("")
+    setIsStudentDialogOpen(false)
   }
 
   const handleAddClass = async (e: React.FormEvent) => {
@@ -163,71 +150,48 @@ export default function StudentsPage() {
       name: newClassName,
       lessonsPerWeek: lessonsCount,
     }
-    try {
-      await addClass(newClass);
-      toast({
-        title: "Class Added",
-        description: `${newClassName} has been added.`,
-      })
-      setNewClassName("")
-      setNewClassLessonsPerWeek("5")
-      setIsClassDialogOpen(false)
-    } catch (error) {
-      console.error("Failed to add class:", error);
-    }
+    await addClass(newClass);
+    toast({
+      title: "Class Added",
+      description: `${newClassName} has been added.`,
+    })
+    setNewClassName("")
+    setNewClassLessonsPerWeek("5")
+    setIsClassDialogOpen(false)
   }
 
   const handleEditStudent = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!studentToEdit) return
     
-    try {
-      await updateStudent(studentToEdit.id, {
-        name: editStudentName,
-        classId: editStudentClassId,
-      });
-      
-      toast({
-        title: "Student Updated",
-        description: `${editStudentName}'s information has been updated.`,
-      })
-      setStudentToEdit(null)
-    } catch (error) {
-      console.error("Failed to update student:", error);
-    }
+    await updateStudent(studentToEdit.id, {
+      name: editStudentName,
+      classId: editStudentClassId,
+    });
+    
+    toast({
+      title: "Student Updated",
+      description: `${editStudentName}'s information has been updated.`,
+    })
+    setStudentToEdit(null)
   }
 
   const handleDeleteStudent = async () => {
     if (!studentToDelete) return
     
-    try {
-      await deleteStudent(studentToDelete.id);
+    await deleteStudent(studentToDelete.id);
 
-      toast({
-        title: "Student Deleted",
-        description: `${studentToDelete.name} has been removed from the roster.`,
-      })
-      setStudentToDelete(null)
-    } catch (error) {
-      console.error("Failed to delete student:", error);
-    }
+    toast({
+      title: "Student Deleted",
+      description: `${studentToDelete.name} has been removed from the roster.`,
+    })
+    setStudentToDelete(null)
   }
   
-  const handleSort = () => {
-    setSortOrder(current => (current === "asc" ? "desc" : "asc"));
-  };
-
-  const filteredStudents = students.filter(
-    (student) => filterClassId === "all" || student.classId === filterClassId
-  );
-
-  const sortedStudents = [...filteredStudents].sort((a, b) => {
-    const nameA = a.name.toLowerCase();
-    const nameB = b.name.toLowerCase();
-    if (nameA < nameB) return sortOrder === "asc" ? -1 : 1;
-    if (nameA > nameB) return sortOrder === "asc" ? 1 : -1;
-    return 0;
-  });
+  const studentsByClass = classes.map(c => ({
+    ...c,
+    students: students.filter(s => s.classId === c.id).sort((a, b) => a.name.localeCompare(b.name))
+  }));
 
   if (!isDataLoaded) {
     return (
@@ -369,76 +333,68 @@ export default function StudentsPage() {
       </div>
       <Card>
         <CardHeader>
-           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Student Roster</CardTitle>
-              <CardDescription>
-                A list of all students currently enrolled.
-              </CardDescription>
-            </div>
-             <div className="flex items-center gap-2">
-                <Label htmlFor="class-filter" className="text-sm font-medium">Filter</Label>
-                <Select value={filterClassId} onValueChange={setFilterClassId}>
-                    <SelectTrigger id="class-filter" className="w-[200px]">
-                        <SelectValue placeholder="Select class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Classes</SelectItem>
-                        {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
-           </div>
+          <CardTitle>Student Roster</CardTitle>
+          <CardDescription>
+            A list of all students currently enrolled, grouped by class.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]">#</TableHead>
-                <TableHead>
-                   <Button variant="ghost" onClick={handleSort} className="-ml-4">
-                    Name
-                    {sortOrder === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />}
-                  </Button>
-                </TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedStudents.map((student, index) => (
-                <TableRow key={student.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell className="font-medium">{student.name}</TableCell>
-                  <TableCell>{getClassName(student.classId)}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">More options</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => setStudentToEdit(student)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => setStudentToDelete(student)}
-                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {studentsByClass.map(c => (
+            <div key={c.id} className="mb-8">
+              <h3 className="text-xl font-semibold mb-2">{c.name}</h3>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[80px]">#</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="text-right w-[100px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {c.students.length > 0 ? (
+                      c.students.map((student, index) => (
+                        <TableRow key={student.id}>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell className="font-medium">{student.name}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">More options</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onSelect={() => setStudentToEdit(student)}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => setStudentToDelete(student)}
+                                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                          No students in this class yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
       
@@ -514,3 +470,5 @@ export default function StudentsPage() {
     </div>
   )
 }
+
+    
