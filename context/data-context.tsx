@@ -68,63 +68,64 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       variant: 'destructive',
     });
   }, [toast]);
-  
-  useEffect(() => {
-    if (!auth || !db) {
-      console.warn("Firebase not configured. App will not sync.");
-      setIsDataLoaded(true);
-      return;
-    }
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+  // Effect to handle auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsDataLoaded(!user); // If no user, data is "loaded" (it's empty)
       if (!user) {
-        setCurrentUser(null);
+        // Clear all data on logout
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
         setProfilePicture(null);
-        setIsDataLoaded(true);
-        return;
       }
-      
-      setCurrentUser(user);
-      setIsDataLoaded(false);
-
-      const getCollectionRef = (col: string) => collection(db, 'users', user.uid, col);
-      const getUserDocRef = () => doc(db, 'users', user.uid);
-
-      const unsubscribers = [
-        onSnapshot(getUserDocRef(), (docSnap) => {
-          if (docSnap.exists()) {
-            setProfilePicture(docSnap.data().profilePicture || null);
-          } else {
-            setDoc(getUserDocRef(), { email: user.email, profilePicture: null })
-              .catch(e => handleDbError(e as Error, 'user profile creation'));
-          }
-        }, (error) => handleDbError(error, 'user profile')),
-        
-        onSnapshot(getCollectionRef('classes'), (snapshot) => {
-          setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Class[]);
-        }, (error) => handleDbError(error, 'classes')),
-
-        onSnapshot(getCollectionRef('students'), (snapshot) => {
-          setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[]);
-        }, (error) => handleDbError(error, 'students')),
-        
-        onSnapshot(getCollectionRef('dailyLogs'), (snapshot) => {
-          setDailyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DailyLog[]);
-        }, (error) => handleDbError(error, 'daily logs')),
-      ];
-      
-      setIsDataLoaded(true);
-
-      return () => {
-        unsubscribers.forEach(unsub => unsub());
-      };
     });
+    return () => unsubscribe();
+  }, []);
 
-    return () => unsubscribeAuth();
-  }, [handleDbError]);
+  // Effect to fetch data when a user logs in
+  useEffect(() => {
+    if (!currentUser || !db) {
+      return;
+    }
+
+    const getCollectionRef = (col: string) => collection(db, 'users', currentUser.uid, col);
+    const getUserDocRef = () => doc(db, 'users', currentUser.uid);
+    
+    // Set up listeners for all collections
+    const unsubscribers = [
+      onSnapshot(getUserDocRef(), (docSnap) => {
+        if (docSnap.exists()) {
+          setProfilePicture(docSnap.data().profilePicture || null);
+        } else {
+          // Create the user document if it doesn't exist
+          setDoc(getUserDocRef(), { email: currentUser.email, profilePicture: null })
+            .catch(e => handleDbError(e as Error, 'user profile creation'));
+        }
+      }, (error) => handleDbError(error, 'user profile')),
+
+      onSnapshot(getCollectionRef('classes'), (snapshot) => {
+        setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Class[]);
+      }, (error) => handleDbError(error, 'classes')),
+
+      onSnapshot(getCollectionRef('students'), (snapshot) => {
+        setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[]);
+      }, (error) => handleDbError(error, 'students')),
+
+      onSnapshot(getCollectionRef('dailyLogs'), (snapshot) => {
+        setDailyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DailyLog[]);
+      }, (error) => handleDbError(error, 'daily logs')),
+    ];
+
+    setIsDataLoaded(true);
+
+    // Cleanup listeners on component unmount or user change
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [currentUser, handleDbError]);
   
   const guardAction = async <T,>(action: () => Promise<T>, context: string): Promise<T> => {
     if (!currentUser || !db) {

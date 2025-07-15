@@ -126,6 +126,7 @@ export function DashboardClient() {
       })
       setIsAddClassDialogOpen(false)
     } catch (error) {
+      // The context handles the toast for the actual error
       console.error("Failed to add class:", error);
     }
   }
