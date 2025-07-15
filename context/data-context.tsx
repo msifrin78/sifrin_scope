@@ -69,32 +69,46 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [toast]);
 
-  // Effect to handle auth state changes
+  // Effect to handle auth state changes and data loading
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      if (!user) {
-        // Clear all data on logout and reset loading state
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        // User is logged out
+        setCurrentUser(null);
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
         setProfilePicture(null);
-        setIsDataLoaded(true); // App is "loaded" with no user
+        setIsDataLoaded(true); // App is "loaded" with no user data
       }
     });
-    return () => unsubscribe();
+
+    return () => unsubscribeAuth();
   }, []);
 
-  // Effect to fetch data when a user logs in
+  // Effect to fetch data when a user is logged in
   useEffect(() => {
     if (!currentUser || !db) {
+      if (!auth.currentUser) setIsDataLoaded(true);
       return;
-    }
+    };
 
-    setIsDataLoaded(false); // Start loading data for the new user
+    setIsDataLoaded(false);
 
     const getCollectionRef = (col: string) => collection(db, 'users', currentUser.uid, col);
     const getUserDocRef = () => doc(db, 'users', currentUser.uid);
+
+    let listenersAttached = 0;
+    const totalListeners = 4;
+
+    const onDataLoaded = () => {
+      listenersAttached++;
+      if (listenersAttached === totalListeners) {
+        setIsDataLoaded(true);
+      }
+    };
     
     // Set up listeners for all collections
     const unsubscribers = [
@@ -102,28 +116,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         if (docSnap.exists()) {
           setProfilePicture(docSnap.data().profilePicture || null);
         } else {
-          // Create the user document if it doesn't exist
           setDoc(getUserDocRef(), { email: currentUser.email, profilePicture: null })
             .catch(e => handleDbError(e as Error, 'user profile creation'));
         }
-      }, (error) => handleDbError(error, 'user profile')),
+        onDataLoaded();
+      }, (error) => { handleDbError(error, 'user profile'); onDataLoaded(); }),
 
       onSnapshot(getCollectionRef('classes'), (snapshot) => {
         setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Class[]);
-      }, (error) => handleDbError(error, 'classes')),
+        onDataLoaded();
+      }, (error) => { handleDbError(error, 'classes'); onDataLoaded(); }),
 
       onSnapshot(getCollectionRef('students'), (snapshot) => {
         setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[]);
-      }, (error) => handleDbError(error, 'students')),
+        onDataLoaded();
+      }, (error) => { handleDbError(error, 'students'); onDataLoaded(); }),
 
       onSnapshot(getCollectionRef('dailyLogs'), (snapshot) => {
         setDailyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DailyLog[]);
-      }, (error) => handleDbError(error, 'daily logs')),
+        onDataLoaded();
+      }, (error) => { handleDbError(error, 'daily logs'); onDataLoaded(); }),
     ];
-
-    // Consider data loaded once listeners are attached.
-    // A more robust solution might use Promise.all with getDocs for initial load.
-    setIsDataLoaded(true);
 
     // Cleanup listeners on component unmount or user change
     return () => {
@@ -172,7 +185,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     studentDocs.forEach(doc => batch.delete(doc.ref));
     
     if (studentIds.length > 0) {
-      // Firestore 'in' queries are limited to 30 values.
       for (let i = 0; i < studentIds.length; i += 30) {
         const chunk = studentIds.slice(i, i + 30);
         const logsQuery = query(getCollectionRef('dailyLogs'), where('studentId', 'in', chunk));
@@ -248,7 +260,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const studentIds = studentDocs.docs.map(d => d.id);
 
     if (studentIds.length > 0) {
-      // Firestore 'in' queries are limited to 30 values.
       for (let i = 0; i < studentIds.length; i += 30) {
         const chunk = studentIds.slice(i, i + 30);
         const logsQuery = query(getCollectionRef('dailyLogs'), where('studentId', 'in', chunk));

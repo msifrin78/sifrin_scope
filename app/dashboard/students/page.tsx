@@ -188,11 +188,6 @@ export default function StudentsPage() {
     setStudentToDelete(null)
   }
   
-  const studentsByClass = classes.map(c => ({
-    ...c,
-    students: students.filter(s => s.classId === c.id).sort((a, b) => a.name.localeCompare(b.name))
-  }));
-
   if (!isDataLoaded) {
     return (
       <div className="space-y-6">
@@ -205,6 +200,11 @@ export default function StudentsPage() {
       </div>
     )
   }
+
+  const studentsByClass = (classes || []).map(c => ({
+    ...c,
+    students: (students || []).filter(s => s.classId === c.id).sort((a, b) => a.name.localeCompare(b.name))
+  }));
 
   return (
     <div className="space-y-6">
@@ -339,62 +339,68 @@ export default function StudentsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {studentsByClass.map(c => (
-            <div key={c.id} className="mb-8">
-              <h3 className="text-xl font-semibold mb-2">{c.name}</h3>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[80px]">#</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead className="text-right w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {c.students.length > 0 ? (
-                      c.students.map((student, index) => (
-                        <TableRow key={student.id}>
-                          <TableCell>{index + 1}</TableCell>
-                          <TableCell className="font-medium">{student.name}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">More options</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onSelect={() => setStudentToEdit(student)}>
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onSelect={() => setStudentToDelete(student)}
-                                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+          {studentsByClass.length === 0 ? (
+             <div className="text-center text-muted-foreground p-6">
+              No classes or students found. Add a class and students to see them here.
+            </div>
+          ) : (
+            studentsByClass.map(c => (
+              <div key={c.id} className="mb-8">
+                <h3 className="text-xl font-semibold mb-2">{c.name}</h3>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[80px]">#</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead className="text-right w-[100px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {c.students.length > 0 ? (
+                        c.students.map((student, index) => (
+                          <TableRow key={student.id}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell className="font-medium">{student.name}</TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">More options</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem onSelect={() => setStudentToEdit(student)}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => setStudentToDelete(student)}
+                                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground">
+                            No students in this class yet.
                           </TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground">
-                          No students in this class yet.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </CardContent>
       </Card>
       
