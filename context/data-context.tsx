@@ -73,13 +73,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
-      setIsDataLoaded(!user); // If no user, data is "loaded" (it's empty)
       if (!user) {
-        // Clear all data on logout
+        // Clear all data on logout and reset loading state
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
         setProfilePicture(null);
+        setIsDataLoaded(true); // App is "loaded" with no user
       }
     });
     return () => unsubscribe();
@@ -90,6 +90,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (!currentUser || !db) {
       return;
     }
+
+    setIsDataLoaded(false); // Start loading data for the new user
 
     const getCollectionRef = (col: string) => collection(db, 'users', currentUser.uid, col);
     const getUserDocRef = () => doc(db, 'users', currentUser.uid);
@@ -119,6 +121,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }, (error) => handleDbError(error, 'daily logs')),
     ];
 
+    // Consider data loaded once listeners are attached.
+    // A more robust solution might use Promise.all with getDocs for initial load.
     setIsDataLoaded(true);
 
     // Cleanup listeners on component unmount or user change
@@ -168,6 +172,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     studentDocs.forEach(doc => batch.delete(doc.ref));
     
     if (studentIds.length > 0) {
+      // Firestore 'in' queries are limited to 30 values.
       for (let i = 0; i < studentIds.length; i += 30) {
         const chunk = studentIds.slice(i, i + 30);
         const logsQuery = query(getCollectionRef('dailyLogs'), where('studentId', 'in', chunk));
@@ -243,6 +248,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const studentIds = studentDocs.docs.map(d => d.id);
 
     if (studentIds.length > 0) {
+      // Firestore 'in' queries are limited to 30 values.
       for (let i = 0; i < studentIds.length; i += 30) {
         const chunk = studentIds.slice(i, i + 30);
         const logsQuery = query(getCollectionRef('dailyLogs'), where('studentId', 'in', chunk));
