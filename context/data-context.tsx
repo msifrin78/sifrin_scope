@@ -24,6 +24,7 @@ import {
   getDocs,
   writeBatch,
   setDoc,
+  Unsubscribe,
 } from 'firebase/firestore';
 import { useToast } from '../hooks/use-toast';
 
@@ -68,82 +69,83 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       variant: 'destructive',
     });
   }, [toast]);
-
-  // Effect to handle auth state changes and data loading
+  
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user);
-      } else {
-        // User is logged out
+      // If user logs out, reset everything
+      if (!user) {
         setCurrentUser(null);
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
         setProfilePicture(null);
-        setIsDataLoaded(true); // App is "loaded" with no user data
+        setIsDataLoaded(true); // App is "loaded" but with no data
+        return;
       }
+
+      // If user logs in (or is already logged in)
+      setCurrentUser(user);
+      setIsDataLoaded(false); // Start loading process
+
+      if (!db) {
+          console.error("Firestore database is not available.");
+          setIsDataLoaded(true); // Stop loading if db is not initialized
+          return;
+      }
+
+      const userDocRef = doc(db, 'users', user.uid);
+      const getCollectionRef = (col: string) => collection(userDocRef, col);
+      
+      let listeners: Unsubscribe[] = [];
+      let loadedCollections = 0;
+      const totalCollections = 4;
+
+      const checkAllDataLoaded = () => {
+        loadedCollections++;
+        if (loadedCollections === totalCollections) {
+          setIsDataLoaded(true);
+        }
+      };
+
+      // Listener for profile picture
+      const unsubProfile = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+              setProfilePicture(docSnap.data().profilePicture || null);
+          }
+          checkAllDataLoaded();
+      }, (error) => { handleDbError(error, 'user profile'); checkAllDataLoaded(); });
+      listeners.push(unsubProfile);
+
+      // Listener for classes
+      const unsubClasses = onSnapshot(getCollectionRef('classes'), (snapshot) => {
+          setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Class[]);
+          checkAllDataLoaded();
+      }, (error) => { handleDbError(error, 'classes'); checkAllDataLoaded(); });
+      listeners.push(unsubClasses);
+      
+      // Listener for students
+      const unsubStudents = onSnapshot(getCollectionRef('students'), (snapshot) => {
+          setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[]);
+          checkAllDataLoaded();
+      }, (error) => { handleDbError(error, 'students'); checkAllDataLoaded(); });
+      listeners.push(unsubStudents);
+
+      // Listener for dailyLogs
+      const unsubLogs = onSnapshot(getCollectionRef('dailyLogs'), (snapshot) => {
+          setDailyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DailyLog[]);
+          checkAllDataLoaded();
+      }, (error) => { handleDbError(error, 'daily logs'); checkAllDataLoaded(); });
+      listeners.push(unsubLogs);
+
+      // Cleanup function for when the user logs out or component unmounts
+      return () => {
+        listeners.forEach(unsub => unsub());
+      };
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [handleDbError]);
 
-  // Effect to fetch data when a user is logged in
-  useEffect(() => {
-    if (!currentUser || !db) {
-      if (!auth.currentUser) setIsDataLoaded(true);
-      return;
-    };
-
-    setIsDataLoaded(false);
-
-    const getCollectionRef = (col: string) => collection(db, 'users', currentUser.uid, col);
-    const getUserDocRef = () => doc(db, 'users', currentUser.uid);
-
-    let listenersAttached = 0;
-    const totalListeners = 4;
-
-    const onDataLoaded = () => {
-      listenersAttached++;
-      if (listenersAttached === totalListeners) {
-        setIsDataLoaded(true);
-      }
-    };
-    
-    // Set up listeners for all collections
-    const unsubscribers = [
-      onSnapshot(getUserDocRef(), (docSnap) => {
-        if (docSnap.exists()) {
-          setProfilePicture(docSnap.data().profilePicture || null);
-        } else {
-          setDoc(getUserDocRef(), { email: currentUser.email, profilePicture: null })
-            .catch(e => handleDbError(e as Error, 'user profile creation'));
-        }
-        onDataLoaded();
-      }, (error) => { handleDbError(error, 'user profile'); onDataLoaded(); }),
-
-      onSnapshot(getCollectionRef('classes'), (snapshot) => {
-        setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Class[]);
-        onDataLoaded();
-      }, (error) => { handleDbError(error, 'classes'); onDataLoaded(); }),
-
-      onSnapshot(getCollectionRef('students'), (snapshot) => {
-        setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[]);
-        onDataLoaded();
-      }, (error) => { handleDbError(error, 'students'); onDataLoaded(); }),
-
-      onSnapshot(getCollectionRef('dailyLogs'), (snapshot) => {
-        setDailyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DailyLog[]);
-        onDataLoaded();
-      }, (error) => { handleDbError(error, 'daily logs'); onDataLoaded(); }),
-    ];
-
-    // Cleanup listeners on component unmount or user change
-    return () => {
-      unsubscribers.forEach(unsub => unsub());
-    };
-  }, [currentUser, handleDbError]);
-  
   const guardAction = async <T,>(action: () => Promise<T>, context: string): Promise<T> => {
     if (!currentUser || !db) {
       const err = "Action failed: User not authenticated or database unavailable.";
@@ -301,3 +303,5 @@ export const useData = () => {
   }
   return context;
 };
+
+    
