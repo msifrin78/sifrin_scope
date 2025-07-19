@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import * as XLSX from "xlsx"
-import { format } from "date-fns"
+import { format, startOfWeek as dateFnsStartOfWeek } from "date-fns"
 import { WeeklyReportCard } from "./weekly-report-card"
 import { ClassReportCard } from "./class-report-card"
 import { DailyReportCard } from "./daily-report-card"
@@ -112,24 +112,34 @@ export function ReportsClient() {
   const { toast } = useToast()
 
   useEffect(() => {
+    // Helper to get the start of a week (Monday) in YYYY-MM-DD format
     const getStartOfWeek = (date: Date) => {
-      const d = new Date(date)
-      const day = d.getDay()
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
-      const monday = new Date(d.setDate(diff))
-      monday.setHours(0, 0, 0, 0)
-      return monday.toISOString().split("T")[0]
+      const monday = dateFnsStartOfWeek(date, { weekStartsOn: 1 })
+      return format(monday, "yyyy-MM-dd")
     }
 
-    const weekStarts = [
+    // Always include the current week
+    const currentWeekStart = getStartOfWeek(new Date())
+    
+    // Get unique week starts from existing logs
+    const weekStartsFromLogs = [
       ...new Set(dailyLogs.map((log) => getStartOfWeek(new Date(log.date)))),
     ]
-    weekStarts.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
 
-    setAvailableWeeks(weekStarts)
-    if (weekStarts.length > 0 && !selectedWeek) {
-      setSelectedWeek(weekStarts[0])
+    // Combine and get unique weeks, with current week first if not present
+    const allWeekStarts = [...new Set([currentWeekStart, ...weekStartsFromLogs])]
+    
+    // Sort weeks in descending order (most recent first)
+    allWeekStarts.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+    
+    setAvailableWeeks(allWeekStarts)
+
+    // Set default selected week to the most recent one if not already set
+    if (allWeekStarts.length > 0 && !selectedWeek) {
+      setSelectedWeek(allWeekStarts[0])
     }
+
+    // Set default class if not already set
     if (classes.length > 0 && !selectedClassId) {
       setSelectedClassId(classes[0].id)
     }

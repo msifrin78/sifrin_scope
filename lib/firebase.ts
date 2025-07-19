@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
@@ -14,17 +15,32 @@ const firebaseConfig = {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let firebaseInitializationError: Error | null = null;
 
-// Only initialize Firebase if the API key is provided.
-// This prevents the app from crashing if the .env file is not configured.
-if (firebaseConfig.apiKey) {
-  try {
-    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-  } catch (e) {
-    console.error("Firebase initialization failed. Please check your credentials.", e);
+try {
+  const isFirebaseConfigValid = 
+    firebaseConfig.apiKey &&
+    firebaseConfig.authDomain &&
+    firebaseConfig.projectId;
+
+  if (!isFirebaseConfigValid) {
+    throw new Error("Firebase configuration is missing or incomplete. Please check your .env file and ensure NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, and NEXT_PUBLIC_FIREBASE_PROJECT_ID are set.");
   }
+
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApp();
+  }
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (e: any) {
+  console.error("Firebase initialization failed:", e);
+  firebaseInitializationError = e;
+  // Set to null so other parts of the app can check for initialization status
+  app = null;
+  auth = null;
+  db = null;
 }
 
-export { app, auth, db };
+export { app, auth, db, firebaseInitializationError };

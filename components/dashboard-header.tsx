@@ -22,7 +22,7 @@ type DashboardHeaderProps = {
 
 export function DashboardHeader({ isSidebar = false }: DashboardHeaderProps) {
   const { profilePicture } = useData()
-
+ 
   if (isSidebar) {
     return (
       <header className="flex h-16 shrink-0 items-center border-b px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">

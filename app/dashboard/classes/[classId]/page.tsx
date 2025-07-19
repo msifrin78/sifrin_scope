@@ -1,10 +1,10 @@
 
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
+import { useParams, notFound } from "next/navigation"
 import { DailyLogTable } from "../../../../components/daily-log-table"
 import { useData } from "../../../../context/data-context"
-import { notFound } from "next/navigation"
 import { Button } from "../../../../components/ui/button"
 import { Clock } from "lucide-react"
 import { addDays, startOfWeek, format, isSameDay } from "date-fns"
@@ -16,17 +16,21 @@ const getOrdinal = (n: number) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0] || "th")
 }
 
-export default function ClassLogPage({
-  params,
-}: {
-  params: { classId: string }
-}) {
-  const { classId } = params
+export default function ClassLogPage() {
+  const params = useParams()
+  const classId = params.classId as string
   const { classes, students, isDataLoaded } = useData()
   const [selectedDate, setSelectedDate] = useState(new Date())
 
   const currentClass = classes.find((c) => c.id === classId)
-  const classStudents = students.filter((s) => s.classId === classId)
+  
+  useEffect(() => {
+    // This check must be in a useEffect to prevent calling notFound() during render
+    if (isDataLoaded && classes.length > 0 && !currentClass) {
+      notFound()
+    }
+  }, [isDataLoaded, classes, currentClass])
+
 
   if (!isDataLoaded) {
     return (
@@ -41,11 +45,10 @@ export default function ClassLogPage({
     )
   }
 
-  if (classes.length > 0 && !currentClass) {
-    notFound()
-  }
+  const classStudents = students.filter((s) => s.classId === classId)
 
   if (!currentClass) {
+    // Render nothing while waiting for the useEffect to potentially call notFound()
     return null
   }
 

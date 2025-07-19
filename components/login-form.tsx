@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useRouter } from "next/navigation"
@@ -12,10 +13,11 @@ import {
 } from "./ui/card"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert"
+import { Eye, EyeOff, Loader2, AlertTriangle } from "lucide-react"
 import { useToast } from "../hooks/use-toast"
 import { signInWithEmailAndPassword } from "firebase/auth"
-import { auth } from "../lib/firebase"
+import { auth, firebaseInitializationError } from "../lib/firebase"
 
 export function LoginForm() {
   const router = useRouter()
@@ -30,10 +32,12 @@ export function LoginForm() {
     setIsLoading(true)
 
     if (!auth) {
+      // This case is handled by the firebaseInitializationError check below,
+      // but it's good practice to keep it as a safeguard.
       toast({
         title: "Configuration Error",
         description:
-          "Firebase is not configured. Please add your credentials to the .env file.",
+          "Firebase is not configured correctly. Please check the console for details.",
         variant: "destructive",
       })
       setIsLoading(false)
@@ -71,6 +75,31 @@ export function LoginForm() {
     } finally {
       setIsLoading(false)
     }
+  }
+  
+  if (firebaseInitializationError) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-2xl">Configuration Error</CardTitle>
+          <CardDescription>
+            The application could not start correctly.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Firebase Initialization Failed</AlertTitle>
+            <AlertDescription>
+              {firebaseInitializationError.message}
+              <br />
+              <br />
+              Please ensure your Firebase environment variables are correctly set in an `.env` file and then restart the application.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
