@@ -55,10 +55,8 @@ export function WeeklyReportCard({
     )
   }
 
-  const maxEngagement = report.lessonsPerWeek * 5
-  const engagementThreshold = maxEngagement * 0.48 // e.g., 12 for 25 (5 lessons)
-  const isParticipationWarning = report.avgParticipation < 12
-  const isEngagementWarning = report.totalEngagement < engagementThreshold
+  const isParticipationWarning = report.avgParticipation < 3
+  const isEngagementWarning = report.avgEngagement < 3
 
   return (
     <Card>
@@ -99,23 +97,18 @@ export function WeeklyReportCard({
                 isParticipationWarning ? "text-destructive" : ""
               }`}
             >
-              {report.avgParticipation.toFixed(1)} / 20
+              {report.avgParticipation.toFixed(1)} / 5
             </p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Total Engagement</p>
+            <p className="text-sm text-muted-foreground">Avg. Presence & Eng.</p>
             <p
               className={`text-2xl font-bold ${
                 isEngagementWarning ? "text-destructive" : ""
               }`}
             >
-              {report.totalEngagement.toFixed(1)} / {maxEngagement}
+              {report.avgEngagement.toFixed(1)} / 5
             </p>
-            {isEngagementWarning && (
-              <p className="text-xs text-destructive">
-                Warning: Below threshold
-              </p>
-            )}
           </div>
         </div>
 

@@ -54,7 +54,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "./ui/card"
@@ -172,6 +171,7 @@ export function ReportsClient() {
     })
 
     let avgParticipation = 0
+    let avgEngagement = 0
 
     if (studentLogs.length > 0) {
       const totalParticipation = studentLogs.reduce(
@@ -179,18 +179,19 @@ export function ReportsClient() {
         0
       )
       avgParticipation = totalParticipation / studentLogs.length
+      
+      const totalEngagement = studentLogs.reduce(
+        (acc, log) => acc + calculateEngagementScore(log.engagement),
+        0
+      )
+      avgEngagement = totalEngagement / studentLogs.length
     }
-
-    const fullWeekEngagementTotal = studentLogs.reduce(
-      (acc, log) => acc + calculateEngagementScore(log.engagement),
-      0
-    )
 
     const newReport: WeeklySummary = {
       studentId: selectedStudentId,
       weekStartDate: start.toISOString().split("T")[0],
       avgParticipation,
-      totalEngagement: fullWeekEngagementTotal,
+      avgEngagement,
       warnings: [],
       logs: studentLogs,
       lessonsPerWeek: studentClass.lessonsPerWeek,
@@ -221,7 +222,7 @@ export function ReportsClient() {
       (s) => s.classId === selectedClassId
     )
     const atRiskStudents: AtRiskStudent[] = []
-    const atRiskThreshold = currentClass.lessonsPerWeek * 2.4
+    const atRiskThreshold = 3; // At-risk if average is less than 3
 
     for (const student of classStudents) {
       const studentLogs = dailyLogs.filter((log) => {
@@ -231,12 +232,15 @@ export function ReportsClient() {
         )
       })
 
+      if (studentLogs.length === 0) continue;
+
       const totalEngagement = studentLogs.reduce(
         (acc, log) => acc + calculateEngagementScore(log.engagement),
         0
       )
+      const avgEngagement = totalEngagement / studentLogs.length;
 
-      if (totalEngagement < atRiskThreshold && studentLogs.length > 0) {
+      if (avgEngagement < atRiskThreshold) {
         const totalParticipation = studentLogs.reduce(
           (acc, log) => acc + calculateParticipationScore(log.participation),
           0
@@ -247,7 +251,7 @@ export function ReportsClient() {
         atRiskStudents.push({
           id: student.id,
           name: student.name,
-          totalEngagement: totalEngagement,
+          avgEngagement: avgEngagement,
           avgParticipation: avgParticipation,
         })
       }
@@ -301,7 +305,7 @@ export function ReportsClient() {
       const flowInput: GenerateFeedbackInput = {
         studentName: student.name,
         avgParticipation: reportData.avgParticipation,
-        totalEngagement: reportData.totalEngagement,
+        totalEngagement: reportData.avgEngagement, // Using average engagement
         dailyLogs: reportData.logs.map((log) => ({
           date: log.date,
           comments: log.comments,
@@ -359,12 +363,10 @@ export function ReportsClient() {
     const doc = new jsPDF()
     const {
       avgParticipation,
-      totalEngagement,
+      avgEngagement,
       logs,
       feedback,
-      lessonsPerWeek,
     } = reportData
-    const maxEngagement = lessonsPerWeek * 5
 
     doc.setFontSize(18)
     doc.text(`Weekly Report for ${selectedStudent.name}`, 14, 22)
@@ -379,12 +381,12 @@ export function ReportsClient() {
     doc.text("Summary", 14, 45)
     doc.setFontSize(10)
     doc.text(
-      `Average Participation: ${avgParticipation.toFixed(1)} / 20`,
+      `Average Participation: ${avgParticipation.toFixed(1)} / 5`,
       14,
       52
     )
     doc.text(
-      `Total Engagement: ${totalEngagement.toFixed(1)} / ${maxEngagement}`,
+      `Average Presence & Engagement: ${avgEngagement.toFixed(1)} / 5`,
       14,
       59
     )
@@ -404,7 +406,7 @@ export function ReportsClient() {
     const tableRows = logs.map((log) => [
       new Date(log.date).toLocaleDateString(),
       log.comments,
-      `${calculateParticipationScore(log.participation)}/20`,
+      `${calculateParticipationScore(log.participation)}/5`,
       `${calculateEngagementScore(log.engagement).toFixed(1)}/5`,
     ])
 
@@ -422,21 +424,19 @@ export function ReportsClient() {
 
     const {
       avgParticipation,
-      totalEngagement,
+      avgEngagement,
       logs,
       feedback,
       weekStartDate,
-      lessonsPerWeek,
     } = reportData
-    const maxEngagement = lessonsPerWeek * 5
 
     const summaryData = [
       ["Student Name", selectedStudent.name],
       ["Week Start Date", new Date(weekStartDate).toLocaleDateString()],
       [],
-      ["Metric", "Score", "Max"],
-      ["Average Participation", avgParticipation.toFixed(1), 20],
-      ["Total Engagement", totalEngagement.toFixed(1), maxEngagement],
+      ["Metric", "Average Score", "Max"],
+      ["Participation", avgParticipation.toFixed(1), 5],
+      ["Presence & Engagement", avgEngagement.toFixed(1), 5],
       [],
       ["AI Feedback"],
       [feedback || "N/A"],
@@ -467,9 +467,7 @@ export function ReportsClient() {
       atRiskStudentsCount,
       passingStudentsCount,
       atRiskStudents,
-      lessonsPerWeek,
     } = classReportData
-    const maxEngagement = lessonsPerWeek * 5
 
     const doc = new jsPDF()
     doc.setFontSize(18)
@@ -488,12 +486,12 @@ export function ReportsClient() {
       const tableColumn = [
         "Student Name",
         "Avg. Participation",
-        "Total Engagement",
+        "Avg. Engagement",
       ]
       const tableRows = atRiskStudents.map((s) => [
         s.name,
-        s.avgParticipation.toFixed(1),
-        `${s.totalEngagement.toFixed(1)} / ${maxEngagement}`,
+        s.avgParticipation.toFixed(1) + " / 5",
+        s.avgEngagement.toFixed(1) + " / 5",
       ])
 
       autoTable(doc, {
@@ -514,9 +512,7 @@ export function ReportsClient() {
       atRiskStudentsCount,
       passingStudentsCount,
       atRiskStudents,
-      lessonsPerWeek,
     } = classReportData
-    const maxEngagement = lessonsPerWeek * 5
 
     const summaryData = [
       ["Class Name", className],
@@ -533,8 +529,8 @@ export function ReportsClient() {
       "Student Name": s.name,
       "Student ID": s.id,
       "Avg Participation Score": s.avgParticipation.toFixed(1),
-      "Total Engagement Score": s.totalEngagement.toFixed(1),
-      "Max Engagement Score": maxEngagement,
+      "Avg Engagement Score": s.avgEngagement.toFixed(1),
+      "Max Score per Category": 5,
     }))
     const atRiskWs = XLSX.utils.json_to_sheet(atRiskData)
 
@@ -561,21 +557,19 @@ export function ReportsClient() {
     doc.setFontSize(12)
     autoTable(doc, {
       startY: 40,
-      head: [["Metric", "Score", "Details"]],
+      head: [["Metric", "Score"]],
       body: [
         [
           "Participation",
-          `${participationScore} / 20`,
-          `Frequency: ${participation.frequency}/10, Collaboration: ${participation.collaboration}/10`,
+          `${participationScore} / 5`,
         ],
         [
-          "Engagement",
+          "Presence & Engagement",
           `${engagementScore.toFixed(1)} / 5`,
-          `Attended: ${engagement.attendance}, Prepared: ${engagement.preparedness}, Focus: ${engagement.focus}, Respect: ${engagement.respect}`,
         ],
-        ["Comments", comments || "N/A", ""],
+        ["Comments", comments || "N/A"],
       ],
-      columnStyles: { 2: { cellWidth: "auto" } },
+      columnStyles: { 1: { cellWidth: "auto" } },
     })
 
     doc.save(
@@ -595,20 +589,10 @@ export function ReportsClient() {
       ["Date", new Date(date).toLocaleDateString()],
       [],
       ["Metric", "Score", "Max Score"],
-      ["Participation", participationScore, 20],
-      ["Engagement", engagementScore.toFixed(1), 5],
+      ["Participation", participationScore, 5],
+      ["Presence & Engagement", engagementScore.toFixed(1), 5],
       [],
       ["Comments", comments || "N/A"],
-      [],
-      ["Participation Details"],
-      ["Frequency", participation.frequency],
-      ["Collaboration", participation.collaboration],
-      [],
-      ["Engagement Details"],
-      ["Attendance", engagement.attendance],
-      ["Preparedness", engagement.preparedness],
-      ["Focus", engagement.focus],
-      ["Respect", engagement.respect],
     ]
 
     const ws = XLSX.utils.aoa_to_sheet(report)

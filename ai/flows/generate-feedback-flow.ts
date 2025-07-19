@@ -15,10 +15,10 @@ const GenerateFeedbackInputSchema = z.object({
   studentName: z.string().describe('The name of the student.'),
   avgParticipation: z
     .number()
-    .describe('The average participation score for the week (out of 20).'),
+    .describe('The average participation score for the week (out of 5).'),
   totalEngagement: z
     .number()
-    .describe('The total engagement score for the week (out of 25).'),
+    .describe('The average engagement score for the week (out of 5).'),
   dailyLogs: z
     .array(
       z.object({
@@ -53,15 +53,15 @@ const prompt = ai.definePrompt({
   name: 'generateFeedbackPrompt',
   input: {schema: GenerateFeedbackInputSchema},
   output: {schema: GenerateFeedbackOutputSchema},
-  prompt: `You are a helpful teaching assistant. Your role is to provide constructive, concise, and encouraging feedback for a student based on their weekly performance report. The report includes their average participation score, their total engagement score, and their daily log comments.
+  prompt: `You are a helpful teaching assistant. Your role is to provide constructive, concise, and encouraging feedback for a student based on their weekly performance report. The report includes their average participation score and their average engagement score, both out of 5.
 
 Student Name: {{studentName}}
-Average Participation Score: {{avgParticipation}}/20
-Total Engagement Score: {{totalEngagement}}/25
+Average Participation Score: {{avgParticipation}}/5
+Average Engagement Score: {{totalEngagement}}/5
 
 Daily Logs:
 {{#each dailyLogs}}
-- {{date}}: {{comments}} (Participation: {{participationScore}}/20, Engagement: {{engagementScore}}/5)
+- {{date}}: {{comments}} (Participation: {{participationScore}}/5, Engagement: {{engagementScore}}/5)
 {{/each}}
 
 Based on this data, generate a brief (2-3 sentences) feedback summary. Highlight strengths and identify specific areas for improvement. Be positive and suggest actionable steps if possible. For example, if engagement scores are low due to lack of preparedness, you could suggest strategies for organizing materials.`,

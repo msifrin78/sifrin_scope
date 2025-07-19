@@ -77,11 +77,9 @@ export function ClassReportCard({
     atRiskStudentsCount,
     passingStudentsCount,
     atRiskStudents,
-    lessonsPerWeek,
   } = report
 
-  const maxEngagement = lessonsPerWeek * 5
-  const atRiskThreshold = maxEngagement * 0.48
+  const atRiskThreshold = 3;
 
   const chartData = [
     {
@@ -179,8 +177,7 @@ export function ClassReportCard({
                   {atRiskStudentsCount}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Based on weekly engagement score {"<"}{" "}
-                  {atRiskThreshold.toFixed(0)}
+                  Avg. weekly engagement score {"<"} {atRiskThreshold}
                 </p>
               </CardContent>
             </Card>
@@ -227,7 +224,7 @@ export function ClassReportCard({
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Avg. Participation</TableHead>
-                    <TableHead>Total Engagement</TableHead>
+                    <TableHead>Avg. Engagement</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -237,10 +234,10 @@ export function ClassReportCard({
                         {student.name}
                       </TableCell>
                       <TableCell>
-                        {student.avgParticipation.toFixed(1)} / 20
+                        {student.avgParticipation.toFixed(1)} / 5
                       </TableCell>
                       <TableCell className="text-destructive">
-                        {student.totalEngagement.toFixed(1)} / {maxEngagement}
+                        {student.avgEngagement.toFixed(1)} / 5
                       </TableCell>
                     </TableRow>
                   ))}

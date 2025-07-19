@@ -91,20 +91,20 @@ export function DailyReportCard({
             <p className="text-sm text-muted-foreground">Participation</p>
             <p
               className={`text-2xl font-bold ${
-                participationScore < 12 ? "text-destructive" : ""
+                participationScore < 3 ? "text-destructive" : ""
               }`}
             >
-              {participationScore} / 20
+              {participationScore} / 5
             </p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Engagement</p>
+            <p className="text-sm text-muted-foreground">Presence & Engagement</p>
             <p
               className={`text-2xl font-bold ${
                 engagementScore < 3 ? "text-destructive" : ""
               }`}
             >
-              {engagementScore.toFixed(1)} / 5
+              {engagementScore.toFixed(0)} / 5
             </p>
           </div>
         </div>

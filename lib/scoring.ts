@@ -1,13 +1,11 @@
 import type { EngagementDetails, ParticipationDetails } from "./definitions"
 
+// The score is now directly stored, so we just return it.
 export const calculateParticipationScore = (details: ParticipationDetails) => {
-  return Object.values(details).reduce((sum, value) => sum + value, 0)
+  return details.score;
 }
 
+// The score is now directly stored, so we just return it.
 export const calculateEngagementScore = (details: EngagementDetails) => {
-  let score = details.attendance ? 2 : 0
-  score += details.preparedness
-  score += details.focus
-  score += details.respect
-  return score
+  return details.score;
 }

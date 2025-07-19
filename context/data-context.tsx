@@ -97,7 +97,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!currentUser || !db) {
-      setIsDataLoaded(true);
+      setIsDataLoaded(!!currentUser); // Set loaded to true if there's a user but no db, otherwise false
       return;
     }
 
@@ -132,21 +132,30 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setDailyLogs(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as DailyLog[]);
     }, (error) => handleDbError(error, 'daily logs')));
 
-    Promise.all(listeners).finally(() => setIsDataLoaded(true));
+    const checkDataLoaded = () => {
+      // This is a simplified check. A more robust solution might wait for all listeners to fire once.
+      setIsDataLoaded(true);
+    };
+    
+    // Give listeners a moment to populate
+    const timer = setTimeout(checkDataLoaded, 1500);
+
 
     return () => {
+      clearTimeout(timer);
       listeners.forEach(unsub => unsub());
     };
   }, [currentUser, handleDbError]);
   
-  const guardAction = async <T,>(action: (user: User, db: Firestore) => Promise<T>, context: string): Promise<T> => {
-    if (!auth?.currentUser || !db) {
+  const guardAction = async <T,>(action: (user: User) => Promise<T>, context: string): Promise<T | undefined> => {
+    const user = auth?.currentUser;
+    if (!user || !db) {
       const error = new Error("User not authenticated or DB not initialized");
       handleDbError(error, context);
-      throw error;
+      return;
     }
     try {
-      return await action(auth.currentUser, db);
+      return await action(user);
     } catch (e) {
       handleDbError(e as Error, context);
       throw e;
@@ -156,7 +165,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const getCollectionForUser = (user: User, colName: string) => collection(db!, 'users', user.uid, colName);
 
   const updateProfilePicture = (url: string | null) => guardAction(
-    (user, db) => setDoc(doc(db, 'users', user.uid), { profilePicture: url }, { merge: true }),
+    (user) => setDoc(doc(db!, 'users', user.uid), { profilePicture: url }, { merge: true }),
     'update profile picture'
   );
 
@@ -170,7 +179,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     'update class'
   );
 
-  const deleteClass = (id: string) => guardAction(async (user, db) => {
+  const deleteClass = (id: string) => guardAction(async (user) => {
+    if(!db) return;
     const batch = writeBatch(db);
     batch.delete(doc(getCollectionForUser(user, 'classes'), id));
     
@@ -200,7 +210,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     'update student'
   );
 
-  const deleteStudent = (id: string) => guardAction(async (user, db) => {
+  const deleteStudent = (id: string) => guardAction(async (user) => {
+    if(!db) return;
     const batch = writeBatch(db);
     batch.delete(doc(getCollectionForUser(user, 'students'), id));
     const logsQuery = query(getCollectionForUser(user, 'dailyLogs'), where('studentId', '==', id));
@@ -209,8 +220,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     await batch.commit();
   }, 'delete student');
 
-  const saveDailyLogs = (logs: Record<string, any>, studentIds: string[], date: string) => guardAction(async (user, db) => {
-    if (studentIds.length === 0) return;
+  const saveDailyLogs = (logs: Record<string, any>, studentIds: string[], date: string) => guardAction(async (user) => {
+    if (studentIds.length === 0 || !db) return;
     const batch = writeBatch(db);
     const logsColRef = getCollectionForUser(user, 'dailyLogs');
     
@@ -230,7 +241,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     await batch.commit();
   }, 'save daily logs');
   
-  const deleteStudentLogs = (studentId: string) => guardAction(async (user, db) => {
+  const deleteStudentLogs = (studentId: string) => guardAction(async (user) => {
+    if(!db) return;
     const batch = writeBatch(db);
     const logsQuery = query(getCollectionForUser(user, 'dailyLogs'), where('studentId', '==', studentId));
     const logDocs = await getDocs(logsQuery);
@@ -238,7 +250,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     await batch.commit();
   }, 'delete student logs');
 
-  const deleteClassLogs = (classId: string) => guardAction(async (user, db) => {
+  const deleteClassLogs = (classId: string) => guardAction(async (user) => {
+    if(!db) return;
     const studentsQuery = query(getCollectionForUser(user, 'students'), where('classId', '==', classId));
     const studentDocs = await getDocs(studentsQuery);
     const studentIds = studentDocs.docs.map(d => d.id);

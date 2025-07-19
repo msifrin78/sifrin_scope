@@ -12,15 +12,11 @@ export type Class = {
 }
 
 export type ParticipationDetails = {
-  frequency: number // 10, 7, 5, 0
-  collaboration: number // 10, 7, 5, 0
+  score: number // 0-5
 }
 
 export type EngagementDetails = {
-  attendance: boolean
-  preparedness: number // 0, 0.5, 1
-  focus: number // 0, 0.5, 1
-  respect: number // 0, 1
+  score: number // 0-5
 }
 
 export type DailyLog = {
@@ -36,7 +32,7 @@ export type WeeklySummary = {
   studentId: string
   weekStartDate: string // YYYY-MM-DD
   avgParticipation: number
-  totalEngagement: number
+  avgEngagement: number
   warnings: string[]
   logs: DailyLog[]
   feedback?: string
@@ -44,9 +40,9 @@ export type WeeklySummary = {
 }
 
 export type AtRiskStudent = {
-  id: string
+  id:string
   name: string
-  totalEngagement: number
+  avgEngagement: number
   avgParticipation: number
 }
 

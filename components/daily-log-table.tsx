@@ -13,7 +13,6 @@ import {
   calculateParticipationScore,
 } from "../lib/scoring"
 import { Button } from "./ui/button"
-import { Checkbox } from "./ui/checkbox"
 import {
   Popover,
   PopoverContent,
@@ -44,30 +43,30 @@ type DailyLogState = Omit<DailyLog, "id" | "studentId" | "date">
 
 const initialLogState: DailyLogState = {
   participation: {
-    frequency: 10,
-    collaboration: 10,
+    score: 5,
   },
   engagement: {
-    attendance: true,
-    preparedness: 1,
-    focus: 1,
-    respect: 1,
+    score: 5,
   },
   comments: "",
 }
 
-const frequencyOptions = [
-  { value: 10, label: "Participated several times (-0)" },
-  { value: 7, label: "Participated only once (-3)" },
-  { value: 5, label: "Needed prompting (-5)" },
-  { value: 0, label: "Did not participate (-10)" },
+const participationOptions = [
+    { value: 5, label: "5: Active, constructive, relevant" },
+    { value: 4, label: "4: Mostly positive, occasional silence" },
+    { value: 3, label: "3: Sporadic, low-quality, or vague" },
+    { value: 2, label: "2: Passive, unclear, or off-topic" },
+    { value: 1, label: "1: Disruptive or dominant" },
+    { value: 0, label: "0: No participation" },
 ]
 
-const collaborationOptions = [
-  { value: 10, label: "Thoughtful contributions (-0)" },
-  { value: 7, label: "Distracted contribution (-3)" },
-  { value: 5, label: "Off topic (-5)" },
-  { value: 0, label: "Rude or disrespectful (-10)" },
+const engagementOptions = [
+    { value: 5, label: "5: On time, focused, prepared, respectful" },
+    { value: 4, label: "4: Slight delay or minor inattention" },
+    { value: 3, label: "3: Often distracted, unprepared" },
+    { value: 2, label: "2: Lacks engagement, disrespects norms" },
+    { value: 1, label: "1: Frequent disruptions, very unfocused" },
+    { value: 0, label: "0: Absent or fully disengaged" },
 ]
 
 export function DailyLogTable({
@@ -91,13 +90,13 @@ export function DailyLogTable({
         (l) => l.studentId === student.id && l.date === date
       )
       if (existingLog) {
-        // Ensure existing logs have the new participation structure
         initialLogs[student.id] = {
           participation: {
-            frequency: existingLog.participation.frequency ?? 10,
-            collaboration: existingLog.participation.collaboration ?? 10,
+            score: existingLog.participation.score ?? 5,
           },
-          engagement: existingLog.engagement,
+          engagement: {
+             score: existingLog.engagement.score ?? 5,
+          },
           comments: existingLog.comments,
         }
       } else {
@@ -107,35 +106,17 @@ export function DailyLogTable({
     setLogs(initialLogs)
   }, [date, dailyLogs, students])
 
-  const handleParticipationChange = (
+  const handleScoreChange = (
     studentId: string,
-    field: keyof ParticipationDetails,
+    category: "participation" | "engagement",
     value: string
   ) => {
     setLogs((prevLogs) => ({
       ...prevLogs,
       [studentId]: {
         ...prevLogs[studentId],
-        participation: {
-          ...prevLogs[studentId].participation,
-          [field]: Number(value),
-        },
-      },
-    }))
-  }
-
-  const handleEngagementChange = (
-    studentId: string,
-    field: keyof EngagementDetails,
-    value: any
-  ) => {
-    setLogs((prevLogs) => ({
-      ...prevLogs,
-      [studentId]: {
-        ...prevLogs[studentId],
-        engagement: {
-          ...prevLogs[studentId].engagement,
-          [field]: value,
+        [category]: {
+          score: Number(value),
         },
       },
     }))
@@ -154,7 +135,7 @@ export function DailyLogTable({
 
     toast({
       title: "Logs Saved",
-      description: "Today's records have been successfully saved.",
+      description: "Today's records have been successfully saved to the cloud.",
     })
   }
   
@@ -188,8 +169,8 @@ export function DailyLogTable({
                   {sortOrder === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />}
                 </Button>
               </TableHead>
-              <TableHead>Participation (20)</TableHead>
-              <TableHead>Engagement (5)</TableHead>
+              <TableHead>Participation (5)</TableHead>
+              <TableHead>Presence & Eng. (5)</TableHead>
               <TableHead className="w-[250px]">Comments</TableHead>
             </TableRow>
           </TableHeader>
@@ -218,27 +199,27 @@ export function DailyLogTable({
                         >
                           <span
                             className={`font-bold ${
-                              participationScore < 12 ? "text-destructive" : ""
+                              participationScore < 3 ? "text-destructive" : ""
                             }`}
                           >
-                            {participationScore} / 20
+                            {participationScore} / 5
                           </span>
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-80">
                         <div className="grid gap-4">
                           <h4 className="font-medium leading-none">
-                            Participation Details
+                            Participation Rubric
                           </h4>
                            <div className="space-y-4">
                             <div>
-                              <Label>Participation Frequency</Label>
+                              <Label>Score</Label>
                               <Select
-                                value={String(studentLog.participation.frequency)}
+                                value={String(studentLog.participation.score)}
                                 onValueChange={(v) =>
-                                  handleParticipationChange(
+                                  handleScoreChange(
                                     student.id,
-                                    "frequency",
+                                    "participation",
                                     v
                                   )
                                 }
@@ -247,29 +228,7 @@ export function DailyLogTable({
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {frequencyOptions.map(opt => (
-                                    <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                             <div>
-                              <Label>Quality &amp; Collaboration</Label>
-                              <Select
-                                value={String(studentLog.participation.collaboration)}
-                                onValueChange={(v) =>
-                                  handleParticipationChange(
-                                    student.id,
-                                    "collaboration",
-                                    v
-                                  )
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                   {collaborationOptions.map(opt => (
+                                  {participationOptions.map(opt => (
                                     <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
                                   ))}
                                 </SelectContent>
@@ -292,43 +251,25 @@ export function DailyLogTable({
                               engagementScore < 3 ? "text-destructive" : ""
                             }`}
                           >
-                            {engagementScore.toFixed(1)} / 5
+                            {engagementScore.toFixed(0)} / 5
                           </span>
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-80">
+                      <PopoverContent className="w-96">
                         <div className="grid gap-4">
                           <h4 className="font-medium leading-none">
-                            Engagement Details
+                            Presence & Engagement Rubric
                           </h4>
                           <div className="space-y-4">
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`attendance-${student.id}`}
-                                checked={studentLog.engagement.attendance}
-                                onCheckedChange={(checked) =>
-                                  handleEngagementChange(
-                                    student.id,
-                                    "attendance",
-                                    !!checked
-                                  )
-                                }
-                              />
-                              <Label htmlFor={`attendance-${student.id}`}>
-                                Attended (+2 pts)
-                              </Label>
-                            </div>
-                            <div>
-                              <Label>Preparedness</Label>
+                             <div>
+                              <Label>Score</Label>
                               <Select
-                                value={String(
-                                  studentLog.engagement.preparedness
-                                )}
+                                value={String(studentLog.engagement.score)}
                                 onValueChange={(v) =>
-                                  handleEngagementChange(
+                                  handleScoreChange(
                                     student.id,
-                                    "preparedness",
-                                    Number(v)
+                                    "engagement",
+                                    v
                                   )
                                 }
                               >
@@ -336,60 +277,9 @@ export function DailyLogTable({
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="1">
-                                    Excellent (-0)
-                                  </SelectItem>
-                                  <SelectItem value="0.5">Okay (-0.5)</SelectItem>
-                                  <SelectItem value="0">Poor (-1)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>Focus</Label>
-                              <Select
-                                value={String(studentLog.engagement.focus)}
-                                onValueChange={(v) =>
-                                  handleEngagementChange(
-                                    student.id,
-                                    "focus",
-                                    Number(v)
-                                  )
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">
-                                    Excellent (-0)
-                                  </SelectItem>
-                                  <SelectItem value="0.5">Okay (-0.5)</SelectItem>
-                                  <SelectItem value="0">Poor (-1)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>Respect</Label>
-                              <Select
-                                value={String(studentLog.engagement.respect)}
-                                onValueChange={(v) =>
-                                  handleEngagementChange(
-                                    student.id,
-                                    "respect",
-                                    Number(v)
-                                  )
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">
-                                    Respectful (-0)
-                                  </SelectItem>
-                                  <SelectItem value="0">
-                                    Disrespectful (-1)
-                                  </SelectItem>
+                                   {engagementOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             </div>
