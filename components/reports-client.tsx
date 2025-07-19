@@ -170,6 +170,8 @@ export function ReportsClient() {
       )
     })
 
+    const lessonsPerWeek = studentClass.lessonsPerWeek > 0 ? studentClass.lessonsPerWeek : 5;
+
     let avgParticipation = 0
     let avgEngagement = 0
 
@@ -178,13 +180,13 @@ export function ReportsClient() {
         (acc, log) => acc + calculateParticipationScore(log.participation),
         0
       )
-      avgParticipation = totalParticipation / studentLogs.length
+      avgParticipation = totalParticipation / lessonsPerWeek
       
       const totalEngagement = studentLogs.reduce(
         (acc, log) => acc + calculateEngagementScore(log.engagement),
         0
       )
-      avgEngagement = totalEngagement / studentLogs.length
+      avgEngagement = totalEngagement / lessonsPerWeek
     }
 
     const newReport: WeeklySummary = {
@@ -222,6 +224,7 @@ export function ReportsClient() {
       (s) => s.classId === selectedClassId
     )
     const atRiskStudents: AtRiskStudent[] = []
+    const lessonsPerWeek = currentClass.lessonsPerWeek > 0 ? currentClass.lessonsPerWeek : 5;
     const atRiskThreshold = 3; // At-risk if average is less than 3
 
     for (const student of classStudents) {
@@ -238,15 +241,14 @@ export function ReportsClient() {
         (acc, log) => acc + calculateEngagementScore(log.engagement),
         0
       )
-      const avgEngagement = totalEngagement / studentLogs.length;
+      const avgEngagement = totalEngagement / lessonsPerWeek;
 
       if (avgEngagement < atRiskThreshold) {
         const totalParticipation = studentLogs.reduce(
           (acc, log) => acc + calculateParticipationScore(log.participation),
           0
         )
-        const avgParticipation =
-          studentLogs.length > 0 ? totalParticipation / studentLogs.length : 0
+        const avgParticipation = totalParticipation / lessonsPerWeek;
 
         atRiskStudents.push({
           id: student.id,
