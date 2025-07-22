@@ -31,13 +31,10 @@ export function LoginForm() {
     e.preventDefault()
     setIsLoading(true)
 
-    if (!auth) {
-      // This case is handled by the firebaseInitializationError check below,
-      // but it's good practice to keep it as a safeguard.
+    if (firebaseInitializationError || !auth) {
       toast({
         title: "Configuration Error",
-        description:
-          "Firebase is not configured correctly. Please check the console for details.",
+        description: firebaseInitializationError?.message || "Firebase is not configured correctly. Please check the console for details.",
         variant: "destructive",
       })
       setIsLoading(false)
@@ -57,7 +54,7 @@ export function LoginForm() {
       switch (error.code) {
         case "auth/invalid-email":
           errorMessage = "Please enter a valid email address."
-          break
+          break;
         case "auth/user-not-found":
         case "auth/wrong-password":
         case "auth/invalid-credential":
@@ -83,7 +80,7 @@ export function LoginForm() {
         <CardHeader>
           <CardTitle className="text-2xl">Configuration Error</CardTitle>
           <CardDescription>
-            The application could not start correctly.
+            The application cannot connect to the backend.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -92,9 +89,6 @@ export function LoginForm() {
             <AlertTitle>Firebase Initialization Failed</AlertTitle>
             <AlertDescription>
               {firebaseInitializationError.message}
-              <br />
-              <br />
-              Please ensure your Firebase environment variables are correctly set in an `.env` file and then restart the application.
             </AlertDescription>
           </Alert>
         </CardContent>

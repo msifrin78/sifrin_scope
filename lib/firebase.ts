@@ -24,7 +24,7 @@ try {
     firebaseConfig.projectId;
 
   if (!isFirebaseConfigValid) {
-    throw new Error("Firebase configuration is missing or incomplete. Please check your .env file and ensure NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, and NEXT_PUBLIC_FIREBASE_PROJECT_ID are set.");
+    throw new Error("Firebase configuration is missing or incomplete. Please ensure your Firebase environment variables (NEXT_PUBLIC_FIREBASE_*) are correctly set in your project settings and then restart the application.");
   }
 
   if (getApps().length === 0) {
@@ -34,6 +34,8 @@ try {
   }
   auth = getAuth(app);
   db = getFirestore(app);
+  console.log("Firebase initialized successfully. Project ID:", firebaseConfig.projectId);
+
 } catch (e: any) {
   console.error("Firebase initialization failed:", e);
   firebaseInitializationError = e;

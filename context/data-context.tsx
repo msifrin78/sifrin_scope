@@ -33,8 +33,8 @@ interface DataContextProps {
   students: Student[];
   dailyLogs: DailyLog[];
   profilePicture: string | null;
-  updateProfilePicture: (url: string | null) => Promise<void>;
   isDataLoaded: boolean;
+  updateProfilePicture: (url: string | null) => Promise<void>;
   addClass: (newClass: Omit<Class, 'id'>) => Promise<void>;
   updateClass: (id: string, updatedData: Partial<Class>) => Promise<void>;
   deleteClass: (id: string) => Promise<void>;
@@ -85,7 +85,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
        if (!user) {
-        // User is logged out, clear all data and mark as loaded
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
@@ -99,7 +98,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!currentUser || !db) {
-        setIsDataLoaded(true); // If no user, data is "loaded" as there's nothing to fetch.
+        setIsDataLoaded(true); 
         return;
     };
     
@@ -120,65 +119,60 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       listeners.push(unsubscribe);
     };
     
-    // Setup listeners for all collections
     setupListener<Class>('classes', setClasses);
     setupListener<Student>('students', setStudents);
     setupListener<DailyLog>('dailyLogs', setDailyLogs);
     
-    // Listener for the profile picture
     const profileUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
           setProfilePicture(docSnap.data()?.profilePicture || null);
         } else {
-          // If the user document doesn't exist, create it.
           setDoc(userDocRef, { createdAt: new Date() }, { merge: true });
           setProfilePicture(null);
         }
     }, (error) => handleDbError(error, 'user profile'));
     listeners.push(profileUnsubscribe);
 
-    // After attempting to set up all listeners, mark data as loaded.
-    // A more robust solution might use Promise.all if setup was async.
     setIsDataLoaded(true);
 
-    // Cleanup function to detach all listeners
     return () => {
       listeners.forEach(unsub => unsub());
     };
   }, [currentUser, handleDbError]);
 
 
-  const performAction = useCallback(async <T,>(context: string, action: (user: User) => Promise<T>): Promise<void> => {
-    if (!currentUser || !db) {
+  const performAction = useCallback(async <T,>(context: string, action: (user: User, db: any) => Promise<T>): Promise<void> => {
+    const user = auth?.currentUser;
+    if (!user || !db) {
       handleDbError(new Error("User not authenticated or DB not initialized."), context);
       return;
     }
     try {
-      await action(currentUser);
+      await action(user, db);
     } catch (e) {
       handleDbError(e as Error, context);
       throw e;
     }
-  }, [currentUser, handleDbError]);
+  }, [handleDbError]);
 
   const updateProfilePicture = useCallback((url: string | null) => performAction(
     'update profile picture',
-    (user) => setDoc(doc(db!, 'users', user.uid), { profilePicture: url }, { merge: true })
+    (user, db) => setDoc(doc(db, 'users', user.uid), { profilePicture: url }, { merge: true })
   ), [performAction]);
   
   const addClass = useCallback((newClass: Omit<Class, 'id'>) => performAction(
     'add class',
-    (user) => addDoc(collection(db!, 'users', user.uid, 'classes'), newClass).then(() => {})
+    (user, db) => addDoc(collection(db, 'users', user.uid, 'classes'), newClass).then(() => {})
   ), [performAction]);
 
   const updateClass = useCallback((id: string, updatedData: Partial<Class>) => performAction(
     'update class',
-    (user) => updateDoc(doc(db!, 'users', user.uid, 'classes', id), updatedData)
+    (user, db) => updateDoc(doc(db, 'users', user.uid, 'classes', id), updatedData)
   ), [performAction]);
 
-  const deleteClass = useCallback((id: string) => performAction('delete class', async (user) => {
-    const batch = writeBatch(db!);
-    const userRef = doc(db!, 'users', user.uid);
+  const deleteClass = useCallback((id: string) => performAction('delete class', async (user, db) => {
+    const batch = writeBatch(db);
+    const userRef = doc(db, 'users', user.uid);
     
     batch.delete(doc(userRef, 'classes', id));
     
@@ -200,17 +194,17 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const addStudent = useCallback((newStudent: Omit<Student, 'id'>) => performAction(
     'add student',
-    (user) => addDoc(collection(db!, 'users', user.uid, 'students'), newStudent).then(() => {})
+    (user, db) => addDoc(collection(db, 'users', user.uid, 'students'), newStudent).then(() => {})
   ), [performAction]);
 
   const updateStudent = useCallback((id: string, updatedData: Partial<Student>) => performAction(
     'update student',
-    (user) => updateDoc(doc(db!, 'users', user.uid, 'students', id), updatedData)
+    (user, db) => updateDoc(doc(db, 'users', user.uid, 'students', id), updatedData)
   ), [performAction]);
 
-  const deleteStudent = useCallback((id: string) => performAction('delete student', async (user) => {
-    const batch = writeBatch(db!);
-    const userRef = doc(db!, 'users', user.uid);
+  const deleteStudent = useCallback((id: string) => performAction('delete student', async (user, db) => {
+    const batch = writeBatch(db);
+    const userRef = doc(db, 'users', user.uid);
     batch.delete(doc(userRef, 'students', id));
     const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', id));
     const logDocs = await getDocs(logsQuery);
@@ -218,14 +212,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     await batch.commit();
   }), [performAction]);
 
-  const saveDailyLogs = useCallback((logs: Record<string, any>, studentIds: string[], date: string) => performAction('save daily logs', async (user) => {
+  const saveDailyLogs = useCallback((logs: Record<string, any>, studentIds: string[], date: string) => performAction('save daily logs', async (user, db) => {
     if (studentIds.length === 0) return;
-    const batch = writeBatch(db!);
-    const logsColRef = collection(db!, 'users', user.uid, 'dailyLogs');
+    const batch = writeBatch(db);
+    const logsColRef = collection(db, 'users', user.uid, 'dailyLogs');
     
     const existingLogsMap = new Map<string, string>();
     if (studentIds.length > 0) {
-        // Firestore 'in' query has a limit of 30 values. Chunk the requests if necessary.
         for (let i = 0; i < studentIds.length; i += 30) {
             const chunk = studentIds.slice(i, i + 30);
             const q = query(logsColRef, where('date', '==', date), where('studentId', 'in', chunk));
@@ -247,17 +240,17 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     await batch.commit();
   }), [performAction]);
 
-  const deleteStudentLogs = useCallback((studentId: string) => performAction('delete student logs', async (user) => {
-    const batch = writeBatch(db!);
-    const userRef = doc(db!, 'users', user.uid);
+  const deleteStudentLogs = useCallback((studentId: string) => performAction('delete student logs', async (user, db) => {
+    const batch = writeBatch(db);
+    const userRef = doc(db, 'users', user.uid);
     const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', studentId));
     const logDocs = await getDocs(logsQuery);
     logDocs.forEach(d => batch.delete(d.ref));
     await batch.commit();
   }), [performAction]);
 
-  const deleteClassLogs = useCallback((classId: string) => performAction('delete class logs', async (user) => {
-    const userRef = doc(db!, 'users', user.uid);
+  const deleteClassLogs = useCallback((classId: string) => performAction('delete class logs', async (user, db) => {
+    const userRef = doc(db, 'users', user.uid);
     const studentsQuery = query(collection(userRef, 'students'), where('classId', '==', classId));
     const studentDocs = await getDocs(studentsQuery);
     const studentIds = studentDocs.docs.map(d => d.id);
@@ -265,7 +258,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (studentIds.length > 0) {
       for (let i = 0; i < studentIds.length; i += 30) {
         const chunk = studentIds.slice(i, i + 30);
-        const batch = writeBatch(db!);
+        const batch = writeBatch(db);
         const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', 'in', chunk));
         const logDocs = await getDocs(logsQuery);
         logDocs.forEach(d => batch.delete(d.ref));
