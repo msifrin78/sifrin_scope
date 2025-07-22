@@ -73,151 +73,156 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (firebaseInitializationError) {
       console.error("Firebase initialization failed, cannot proceed.");
-      setIsDataLoaded(true);
+      setIsDataLoaded(true); // Allow UI to render error state
       return;
     }
     if (!auth || !db) {
-      console.error("Firebase Auth or DB is not initialized.");
-      setIsDataLoaded(true);
-      return;
+       console.error("Firebase Auth or DB is not initialized.");
+       setIsDataLoaded(true);
+       return;
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        // User is logged out
+        setCurrentUser(null);
+        setClasses([]);
+        setStudents([]);
+        setDailyLogs([]);
+        setProfilePicture(null);
+        setIsDataLoaded(true); // Data is "loaded" because there's nothing to load
+      }
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, []); // This effect runs only once to set up the auth listener
 
   useEffect(() => {
-    if (!auth) return;
+    if (!currentUser || !db) {
+        // If there's no user, we ensure the state is clear and data is considered "loaded"
+        if (!currentUser) setIsDataLoaded(true);
+        return;
+    };
+    
+    setIsDataLoaded(false);
+    const userDocRef = doc(db, 'users', currentUser.uid);
 
-    if (!currentUser) {
-      setClasses([]);
-      setStudents([]);
-      setDailyLogs([]);
-      setProfilePicture(null);
-      setIsDataLoaded(true);
+    const listeners: Unsubscribe[] = [];
+
+    const setupListener = <T,>(
+      collectionName: string,
+      setter: React.Dispatch<React.SetStateAction<T[]>>
+    ) => {
+      const q = query(collection(userDocRef, collectionName));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
+        setter(data);
+      }, (error) => handleDbError(error, `listening to ${collectionName}`));
+      listeners.push(unsubscribe);
+    };
+
+    setupListener<Class>('classes', setClasses);
+    setupListener<Student>('students', setStudents);
+    setupListener<DailyLog>('dailyLogs', setDailyLogs);
+    
+    const profileUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        setProfilePicture(docSnap.data()?.profilePicture || null);
+    }, (error) => handleDbError(error, 'user profile'));
+    listeners.push(profileUnsubscribe);
+
+    // Crucially, mark data as loaded only after all listeners are attached.
+    setIsDataLoaded(true);
+
+    // Cleanup function to detach all listeners when the user logs out or the component unmounts
+    return () => {
+      listeners.forEach(unsub => unsub());
+    };
+  }, [currentUser, handleDbError]); // This effect re-runs ONLY when the user changes
+
+
+  const performAction = useCallback(async <T,>(context: string, action: (user: User) => Promise<T>): Promise<T | undefined> => {
+    if (!currentUser || !db) {
+      handleDbError(new Error("User not authenticated or DB not initialized."), context);
       return;
     }
-
-    if (currentUser && db) {
-      setIsDataLoaded(false);
-      const userDocRef = doc(db, 'users', currentUser.uid);
-
-      const listeners: Unsubscribe[] = [];
-
-      const setupListener = <T,>(
-        collectionName: string,
-        setter: React.Dispatch<React.SetStateAction<T[]>>
-      ) => {
-        const q = query(collection(userDocRef, collectionName));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
-          setter(data);
-        }, (error) => handleDbError(error, `listening to ${collectionName}`));
-        listeners.push(unsubscribe);
-      };
-
-      setupListener<Class>('classes', setClasses);
-      setupListener<Student>('students', setStudents);
-      setupListener<DailyLog>('dailyLogs', setDailyLogs);
-
-      const profileUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        setProfilePicture(docSnap.data()?.profilePicture || null);
-      }, (error) => handleDbError(error, 'user profile'));
-      listeners.push(profileUnsubscribe);
-
-      // This is a crucial change: mark data as loaded only AFTER listeners are attached.
-      setIsDataLoaded(true);
-
-      return () => {
-        listeners.forEach(unsub => unsub());
-      };
-    }
-  }, [currentUser, handleDbError]);
-  
-  const guardAction = async <T,>(action: (user: User) => Promise<T>, context: string): Promise<T> => {
-    if (!auth?.currentUser || !db) {
-      const error = new Error("User not authenticated or DB not initialized");
-      handleDbError(error, context);
-      throw error;
-    }
     try {
-      return await action(auth.currentUser);
+      return await action(currentUser);
     } catch (e) {
       handleDbError(e as Error, context);
-      throw e;
+      throw e; // Re-throw to be handled by the calling component if needed
     }
-  };
+  }, [currentUser, handleDbError]);
+
+  const updateProfilePicture = useCallback((url: string | null) => performAction(
+    'update profile picture',
+    (user) => setDoc(doc(db!, 'users', user.uid), { profilePicture: url }, { merge: true })
+  ), [performAction]);
   
-  const getCollectionForUser = (user: User, colName: string) => collection(db!, 'users', user.uid, colName);
+  const addClass = useCallback((newClass: Omit<Class, 'id'>) => performAction(
+    'add class',
+    (user) => addDoc(collection(db!, 'users', user.uid, 'classes'), newClass).then(() => {})
+  ), [performAction]);
 
-  const updateProfilePicture = (url: string | null) => guardAction(
-    (user) => setDoc(doc(db!, 'users', user.uid), { profilePicture: url }, { merge: true }),
-    'update profile picture'
-  );
+  const updateClass = useCallback((id: string, updatedData: Partial<Class>) => performAction(
+    'update class',
+    (user) => updateDoc(doc(db!, 'users', user.uid, 'classes', id), updatedData)
+  ), [performAction]);
 
-  const addClass = (newClass: Omit<Class, 'id'>) => guardAction(
-    (user) => addDoc(getCollectionForUser(user, 'classes'), newClass).then(() => {}),
-    'add class'
-  );
-
-  const updateClass = (id: string, updatedData: Partial<Class>) => guardAction(
-    (user) => updateDoc(doc(getCollectionForUser(user, 'classes'), id), updatedData),
-    'update class'
-  );
-
-  const deleteClass = (id: string) => guardAction(async (user) => {
+  const deleteClass = useCallback((id: string) => performAction('delete class', async (user) => {
     if(!db) return;
     const batch = writeBatch(db);
-    batch.delete(doc(getCollectionForUser(user, 'classes'), id));
+    const userRef = doc(db, 'users', user.uid);
     
-    const studentsQuery = query(getCollectionForUser(user, 'students'), where('classId', '==', id));
+    batch.delete(doc(userRef, 'classes', id));
+    
+    const studentsQuery = query(collection(userRef, 'students'), where('classId', '==', id));
     const studentDocs = await getDocs(studentsQuery);
     const studentIds = studentDocs.docs.map(d => d.id);
     studentDocs.forEach(d => batch.delete(d.ref));
     
     if (studentIds.length > 0) {
-      for (let i = 0; i < studentIds.length; i += 30) {
+       for (let i = 0; i < studentIds.length; i += 30) {
         const chunk = studentIds.slice(i, i + 30);
-        const logsQuery = query(getCollectionForUser(user, 'dailyLogs'), where('studentId', 'in', chunk));
+        const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', 'in', chunk));
         const logDocs = await getDocs(logsQuery);
         logDocs.forEach(d => batch.delete(d.ref));
       }
     }
     await batch.commit();
-  }, 'delete class');
+  }), [performAction]);
 
-  const addStudent = (newStudent: Omit<Student, 'id'>) => guardAction(
-    (user) => addDoc(getCollectionForUser(user, 'students'), newStudent).then(() => {}),
-    'add student'
-  );
+  const addStudent = useCallback((newStudent: Omit<Student, 'id'>) => performAction(
+    'add student',
+    (user) => addDoc(collection(db!, 'users', user.uid, 'students'), newStudent).then(() => {})
+  ), [performAction]);
 
-  const updateStudent = (id: string, updatedData: Partial<Student>) => guardAction(
-    (user) => updateDoc(doc(getCollectionForUser(user, 'students'), id), updatedData),
-    'update student'
-  );
+  const updateStudent = useCallback((id: string, updatedData: Partial<Student>) => performAction(
+    'update student',
+    (user) => updateDoc(doc(db!, 'users', user.uid, 'students', id), updatedData)
+  ), [performAction]);
 
-  const deleteStudent = (id: string) => guardAction(async (user) => {
+  const deleteStudent = useCallback((id: string) => performAction('delete student', async (user) => {
     if(!db) return;
     const batch = writeBatch(db);
-    batch.delete(doc(getCollectionForUser(user, 'students'), id));
-    const logsQuery = query(getCollectionForUser(user, 'dailyLogs'), where('studentId', '==', id));
+    const userRef = doc(db, 'users', user.uid);
+    batch.delete(doc(userRef, 'students', id));
+    const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', id));
     const logDocs = await getDocs(logsQuery);
     logDocs.forEach(d => batch.delete(d.ref));
     await batch.commit();
-  }, 'delete student');
+  }), [performAction]);
 
-  const saveDailyLogs = (logs: Record<string, any>, studentIds: string[], date: string) => guardAction(async (user) => {
+  const saveDailyLogs = useCallback((logs: Record<string, any>, studentIds: string[], date: string) => performAction('save daily logs', async (user) => {
     if (studentIds.length === 0 || !db) return;
     const batch = writeBatch(db);
-    const logsColRef = getCollectionForUser(user, 'dailyLogs');
+    const logsColRef = collection(db, 'users', user.uid, 'dailyLogs');
     
     const existingLogsMap = new Map<string, string>();
-    for (let i = 0; i < studentIds.length; i += 30) {
-        const chunk = studentIds.slice(i, i + 30);
-        const q = query(logsColRef, where('date', '==', date), where('studentId', 'in', chunk));
+    // Fetch all existing logs for the given students on that date in one go.
+    if (studentIds.length > 0) {
+        const q = query(logsColRef, where('date', '==', date), where('studentId', 'in', studentIds.slice(0,30))); // Firestore 'in' query limit
         const existingLogsSnap = await getDocs(q);
         existingLogsSnap.forEach(d => existingLogsMap.set(d.data().studentId, d.id));
     }
@@ -227,28 +232,28 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       if (!logData) continue;
       
       const completeLogData = { ...logData, studentId, date };
-      
       const existingDocId = existingLogsMap.get(studentId);
       
       const docRef = existingDocId ? doc(logsColRef, existingDocId) : doc(logsColRef);
-      
       batch.set(docRef, completeLogData, { merge: true });
     }
     await batch.commit();
-  }, 'save daily logs');
-  
-  const deleteStudentLogs = (studentId: string) => guardAction(async (user) => {
+  }), [performAction]);
+
+  const deleteStudentLogs = useCallback((studentId: string) => performAction('delete student logs', async (user) => {
     if(!db) return;
     const batch = writeBatch(db);
-    const logsQuery = query(getCollectionForUser(user, 'dailyLogs'), where('studentId', '==', studentId));
+    const userRef = doc(db, 'users', user.uid);
+    const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', studentId));
     const logDocs = await getDocs(logsQuery);
     logDocs.forEach(d => batch.delete(d.ref));
     await batch.commit();
-  }, 'delete student logs');
+  }), [performAction]);
 
-  const deleteClassLogs = (classId: string) => guardAction(async (user) => {
+  const deleteClassLogs = useCallback((classId: string) => performAction('delete class logs', async (user) => {
     if(!db) return;
-    const studentsQuery = query(getCollectionForUser(user, 'students'), where('classId', '==', classId));
+    const userRef = doc(db, 'users', user.uid);
+    const studentsQuery = query(collection(userRef, 'students'), where('classId', '==', classId));
     const studentDocs = await getDocs(studentsQuery);
     const studentIds = studentDocs.docs.map(d => d.id);
 
@@ -256,13 +261,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const batch = writeBatch(db);
       for (let i = 0; i < studentIds.length; i += 30) {
         const chunk = studentIds.slice(i, i + 30);
-        const logsQuery = query(getCollectionForUser(user, 'dailyLogs'), where('studentId', 'in', chunk));
+        const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', 'in', chunk));
         const logDocs = await getDocs(logsQuery);
         logDocs.forEach(d => batch.delete(d.ref));
       }
       await batch.commit();
     }
-  }, 'delete class logs');
+  }), [performAction]);
 
   return (
     <DataContext.Provider
@@ -296,3 +301,5 @@ export const useData = () => {
   }
   return context;
 };
+
+    
