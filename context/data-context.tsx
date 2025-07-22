@@ -72,76 +72,72 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (firebaseInitializationError) {
-      setIsDataLoaded(true); // Stop loading screens
+      console.error("Firebase initialization failed, cannot proceed.");
+      setIsDataLoaded(true); // Stop loading screens, app is in error state.
       return;
     }
-    if (!auth) {
-        // This case should not happen if firebaseInitializationError is handled, but as a safeguard:
-        console.error("Auth is not initialized.");
+     if (!auth || !db) {
+        console.error("Firebase Auth or DB is not initialized.");
         setIsDataLoaded(true);
         return;
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
-      if (!user) {
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+      if (!currentUser || !db) {
+        // Not logged in, clear all data and mark as loaded.
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
         setProfilePicture(null);
         setIsDataLoaded(true);
+        return;
       }
-    });
-    return () => unsubscribeAuth();
-  }, []);
 
-  useEffect(() => {
-    if (!currentUser || !db) {
-       // If there is no user, we consider the "loaded" state to be true
-       // to allow rendering of login pages etc.
-      setIsDataLoaded(!currentUser); 
-      return;
-    }
-    
-    setIsDataLoaded(false);
+      // User is logged in, start loading data.
+      setIsDataLoaded(false);
 
-    const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const listeners: Unsubscribe[] = [];
 
-    const listeners: Unsubscribe[] = [];
-    
-    // Ensure the user document exists.
-    setDoc(userDocRef, { uid: currentUser.uid, email: currentUser.email }, { merge: true })
-      .catch(e => handleDbError(e, 'user profile setup'));
+      const getCollectionRef = (colName: string) => collection(userDocRef, colName);
+
+      const setupListener = <T,>(
+        collectionName: string,
+        setter: React.Dispatch<React.SetStateAction<T[]>>
+      ) => {
+        const q = query(getCollectionRef(collectionName));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
+          setter(data);
+        }, (error) => handleDbError(error, `listening to ${collectionName}`));
+        listeners.push(unsubscribe);
+      };
       
-    // Listener for Profile Picture
-    listeners.push(onSnapshot(userDocRef, (docSnap) => {
-      setProfilePicture(docSnap.data()?.profilePicture || null);
-    }, (error) => handleDbError(error, 'user profile')));
+      // Setup listeners for all collections
+      setupListener<Class>('classes', setClasses);
+      setupListener<Student>('students', setStudents);
+      setupListener<DailyLog>('dailyLogs', setDailyLogs);
+      
+      // Listener for Profile Picture
+      const profileUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        setProfilePicture(docSnap.data()?.profilePicture || null);
+      }, (error) => handleDbError(error, 'user profile'));
+      listeners.push(profileUnsubscribe);
 
-    const getCollectionRef = (colName: string) => collection(userDocRef, colName);
+      // We have a user and listeners are attached, so data is considered loaded.
+      // Subsequent updates will come through the listeners.
+      setIsDataLoaded(true);
 
-    // Listener for Classes
-    listeners.push(onSnapshot(getCollectionRef('classes'), (snapshot) => {
-      setClasses(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Class[]);
-    }, (error) => handleDbError(error, 'classes')));
-
-    // Listener for Students
-    listeners.push(onSnapshot(getCollectionRef('students'), (snapshot) => {
-      setStudents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Student[]);
-    }, (error) => handleDbError(error, 'students')));
-
-    // Listener for Daily Logs
-    listeners.push(onSnapshot(getCollectionRef('dailyLogs'), (snapshot) => {
-      setDailyLogs(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as DailyLog[]);
-    }, (error) => handleDbError(error, 'daily logs')));
-
-    // A simple way to set loaded to true after initial listeners are set up
-    const timer = setTimeout(() => setIsDataLoaded(true), 1500);
-
-    return () => {
-      clearTimeout(timer);
-      listeners.forEach(unsub => unsub());
-    };
+      return () => {
+        listeners.forEach(unsub => unsub());
+      };
   }, [currentUser, handleDbError]);
   
   const guardAction = async <T,>(action: (user: User) => Promise<T>, context: string): Promise<T> => {
@@ -239,9 +235,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const completeLogData = { ...logData, studentId, date };
       
       const existingDocId = existingLogsMap.get(studentId);
+      
+      // If a log exists, use its doc ID to update. If not, create a new doc ref.
       const docRef = existingDocId ? doc(logsColRef, existingDocId) : doc(logsColRef);
       
-      batch.set(docRef, completeLogData);
+      // set() will create or overwrite, which is what we want.
+      batch.set(docRef, completeLogData, { merge: true });
     }
     await batch.commit();
   }, 'save daily logs');
