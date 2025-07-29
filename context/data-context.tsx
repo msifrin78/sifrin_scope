@@ -69,89 +69,94 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       variant: 'destructive',
     });
   }, [toast]);
-
+  
   useEffect(() => {
     if (firebaseInitializationError) {
       console.error("Firebase initialization failed, cannot proceed.");
-      setIsDataLoaded(true); // Allow UI to render error state
+      setIsDataLoaded(true);
       return;
     }
-    if (!auth) {
-       console.error("Firebase Auth is not initialized.");
+    if (!auth || !db) {
+       console.error("Firebase Auth or DB is not initialized.");
        setIsDataLoaded(true);
        return;
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-       if (!user) {
-        // Clear all data and listeners when user logs out
-        setClasses([]);
-        setStudents([]);
-        setDailyLogs([]);
-        setProfilePicture(null);
-        setIsDataLoaded(true);
-      }
+        setIsDataLoaded(false);
+        setCurrentUser(user);
+
+        if (!user) {
+          // If user is null (logged out), set data loaded to true to show login screen.
+          setIsDataLoaded(true);
+        }
     });
 
     return () => unsubscribeAuth();
   }, []);
 
+
   useEffect(() => {
-    if (!currentUser || !db) {
-      // Set loaded to true if there's no user, to show login page
-      if (!currentUser) setIsDataLoaded(true);
-      return;
-    };
-    
-    setIsDataLoaded(false);
-    
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    const listeners: Unsubscribe[] = [];
-
-    const setupListener = <T,>(
-      collectionName: string,
-      setter: React.Dispatch<React.SetStateAction<T[]>>
-    ): Unsubscribe => {
-      const q = query(collection(userDocRef, collectionName));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
-        setter(data);
-      }, (error) => handleDbError(error, `listening to ${collectionName}`));
-      return unsubscribe;
-    };
-    
-    listeners.push(setupListener<Class>('classes', setClasses));
-    listeners.push(setupListener<Student>('students', setStudents));
-    listeners.push(setupListener<DailyLog>('dailyLogs', setDailyLogs));
-    
-    const profileUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setProfilePicture(docSnap.data()?.profilePicture || null);
-        } else {
-          // If the user document doesn't exist, create it.
-          setDoc(userDocRef, { createdAt: new Date() }, { merge: true });
-          setProfilePicture(null);
+      if (!currentUser || !db) {
+        // Clear data if user logs out
+        if (!currentUser) {
+            setClasses([]);
+            setStudents([]);
+            setDailyLogs([]);
+            setProfilePicture(null);
         }
-    }, (error) => handleDbError(error, 'user profile'));
-    listeners.push(profileUnsubscribe);
+        return;
+      }
 
-    // Consider data loaded once listeners are set up
-    setIsDataLoaded(true);
+      const userDocRef = doc(db, 'users', currentUser.uid);
 
-    // Cleanup function to unsubscribe from all listeners
-    return () => {
-      listeners.forEach(unsub => unsub());
-    };
+      const setupListener = <T,>(
+        collectionName: string,
+        setter: React.Dispatch<React.SetStateAction<T[]>>
+      ): Unsubscribe => {
+        const q = query(collection(userDocRef, collectionName));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
+          setter(data);
+        }, (error) => handleDbError(error, `listening to ${collectionName}`));
+        return unsubscribe;
+      };
+
+      const listeners: Unsubscribe[] = [];
+      listeners.push(setupListener<Class>('classes', setClasses));
+      listeners.push(setupListener<Student>('students', setStudents));
+      listeners.push(setupListener<DailyLog>('dailyLogs', setDailyLogs));
+      
+      const profileUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setProfilePicture(docSnap.data()?.profilePicture || null);
+          } else {
+            setDoc(userDocRef, { createdAt: new Date() }, { merge: true });
+            setProfilePicture(null);
+          }
+          // Mark data as loaded after the first successful read (profile)
+          setIsDataLoaded(true);
+      }, (error) => {
+          handleDbError(error, 'user profile');
+          setIsDataLoaded(true);
+      });
+      listeners.push(profileUnsubscribe);
+
+      // Final check to ensure data is marked as loaded
+      const timer = setTimeout(() => setIsDataLoaded(true), 1500);
+      listeners.push(() => clearTimeout(timer));
+
+      return () => {
+        listeners.forEach(unsub => unsub());
+      };
   }, [currentUser, handleDbError]);
 
 
   const performAction = useCallback(async <T,>(context: string, action: (user: User) => Promise<T>): Promise<void> => {
-    // This is the key: we get auth.currentUser right when the action is called.
     const user = auth?.currentUser;
     if (!user || !db) {
       handleDbError(new Error("User not authenticated or DB not initialized."), context);
-      return;
+      return Promise.reject(new Error("User not authenticated"));
     }
     try {
       await action(user);
@@ -177,6 +182,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   ), [performAction]);
 
   const deleteClass = useCallback((id: string) => performAction('delete class', async (user) => {
+    if (!db) return;
     const batch = writeBatch(db);
     const userRef = doc(db, 'users', user.uid);
     
@@ -209,6 +215,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   ), [performAction]);
 
   const deleteStudent = useCallback((id: string) => performAction('delete student', async (user) => {
+    if (!db) return;
     const batch = writeBatch(db);
     const userRef = doc(db, 'users', user.uid);
     batch.delete(doc(userRef, 'students', id));
@@ -219,7 +226,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }), [performAction]);
 
   const saveDailyLogs = useCallback((logs: Record<string, any>, studentIds: string[], date: string) => performAction('save daily logs', async (user) => {
-    if (studentIds.length === 0) return;
+    if (!db || studentIds.length === 0) return;
     const batch = writeBatch(db);
     const logsColRef = collection(db, 'users', user.uid, 'dailyLogs');
     
@@ -249,6 +256,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }), [performAction]);
 
   const deleteStudentLogs = useCallback((studentId: string) => performAction('delete student logs', async (user) => {
+    if (!db) return;
     const batch = writeBatch(db);
     const userRef = doc(db, 'users', user.uid);
     const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', studentId));
@@ -258,6 +266,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }), [performAction]);
 
   const deleteClassLogs = useCallback((classId: string) => performAction('delete class logs', async (user) => {
+    if (!db) return;
     const userRef = doc(db, 'users', user.uid);
     const studentsQuery = query(collection(userRef, 'students'), where('classId', '==', classId));
     const studentDocs = await getDocs(studentsQuery);
