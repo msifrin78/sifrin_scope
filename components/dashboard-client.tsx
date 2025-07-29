@@ -174,7 +174,7 @@ export function DashboardClient() {
         <div>
           <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground">
-            Syncing data from the cloud...
+            Loading...
           </p>
         </div>
       </div>
@@ -187,7 +187,7 @@ export function DashboardClient() {
         <div>
           <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground">
-            A high-level overview of your classes. Add new classes and students from the 'Students' page.
+            A high-level overview of your classes. Add new students from the 'Students' page.
           </p>
         </div>
       </div>
