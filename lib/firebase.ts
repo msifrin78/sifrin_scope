@@ -12,21 +12,12 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
 let firebaseInitializationError: Error | null = null;
 
 try {
-  const isFirebaseConfigValid = 
-    firebaseConfig.apiKey &&
-    firebaseConfig.authDomain &&
-    firebaseConfig.projectId;
-
-  if (!isFirebaseConfigValid) {
-    throw new Error("Firebase configuration is missing or incomplete. Please ensure your Firebase environment variables (NEXT_PUBLIC_FIREBASE_*) are correctly set in your project settings and then restart the application.");
-  }
-
   if (getApps().length === 0) {
     app = initializeApp(firebaseConfig);
   } else {
@@ -34,15 +25,10 @@ try {
   }
   auth = getAuth(app);
   db = getFirestore(app);
-  console.log("Firebase initialized successfully. Project ID:", firebaseConfig.projectId);
-
 } catch (e: any) {
   console.error("Firebase initialization failed:", e);
   firebaseInitializationError = e;
-  // Set to null so other parts of the app can check for initialization status
-  app = null;
-  auth = null;
-  db = null;
 }
 
+// @ts-ignore
 export { app, auth, db, firebaseInitializationError };

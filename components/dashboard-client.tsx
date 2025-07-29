@@ -25,6 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "./ui/dialog"
 import {
   AlertDialog,
@@ -48,12 +49,18 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  PlusCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { calculateEngagementScore } from "../lib/scoring"
 
 export function DashboardClient() {
-  const { classes, students, dailyLogs, isDataLoaded, updateClass, deleteClass } = useData()
+  const { classes, students, dailyLogs, isDataLoaded, addClass, updateClass, deleteClass } = useData()
+
+  // Add Class State
+  const [newClassName, setNewClassName] = useState("")
+  const [newClassLessonsPerWeek, setNewClassLessonsPerWeek] = useState("5")
+  const [isClassDialogOpen, setIsClassDialogOpen] = useState(false)
 
   // Edit Class State
   const [classToEdit, setClassToEdit] = useState<Class | null>(null)
@@ -123,6 +130,32 @@ export function DashboardClient() {
     }
   }
 
+  const handleAddClass = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const lessonsCount = parseInt(newClassLessonsPerWeek, 10)
+    if (!newClassName || isNaN(lessonsCount) || lessonsCount <= 0) {
+      toast({
+        title: "Missing Information",
+        description:
+          "Please provide a valid class name and number of weekly lessons.",
+        variant: "destructive",
+      })
+      return
+    }
+    const newClass: Omit<Class, 'id'> = {
+      name: newClassName,
+      lessonsPerWeek: lessonsCount,
+    }
+    await addClass(newClass);
+    toast({
+      title: "Class Added",
+      description: `${newClassName} has been added.`,
+    })
+    setNewClassName("")
+    setNewClassLessonsPerWeek("5")
+    setIsClassDialogOpen(false)
+  }
+
   const handleEditClass = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!classToEdit) return
@@ -174,7 +207,7 @@ export function DashboardClient() {
         <div>
           <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground">
-            Loading...
+            Loading your classes... Please wait.
           </p>
         </div>
       </div>
@@ -187,13 +220,65 @@ export function DashboardClient() {
         <div>
           <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground">
-            A high-level overview of your classes. Add new students from the 'Students' page.
+            A high-level overview of your classes. Add new classes here or add students from the 'Students' page.
           </p>
         </div>
+        <Dialog open={isClassDialogOpen} onOpenChange={setIsClassDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Class
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <form onSubmit={handleAddClass}>
+              <DialogHeader>
+                <DialogTitle>Add New Class</DialogTitle>
+                <DialogDescription>
+                  Enter the details for the new class. Click save when you're
+                  done.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="className" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="className"
+                    placeholder="e.g., Period 5 - English"
+                    className="col-span-3"
+                    value={newClassName}
+                    onChange={(e) => setNewClassName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="lessonsPerWeek" className="text-right">
+                    Lessons/Week
+                  </Label>
+                  <Input
+                    id="lessonsPerWeek"
+                    type="number"
+                    min="1"
+                    placeholder="e.g., 5"
+                    className="col-span-3"
+                    value={newClassLessonsPerWeek}
+                    onChange={(e) => setNewClassLessonsPerWeek(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Save Class</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {classes.length === 0 ? (
-          <p className="text-muted-foreground col-span-full text-center p-8">No classes found. Go to the 'Students' page to add your first class.</p>
+          <p className="text-muted-foreground col-span-full text-center p-8">No classes found. Click "Add Class" to get started.</p>
         ) : (
           classes.map((c) => {
             const stats = getClassStats(c.id)
