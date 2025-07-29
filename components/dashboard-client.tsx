@@ -25,7 +25,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "./ui/dialog"
 import {
   AlertDialog,
@@ -49,18 +48,12 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  PlusCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { calculateEngagementScore } from "../lib/scoring"
 
 export function DashboardClient() {
-  const { classes, students, dailyLogs, isDataLoaded, updateClass, deleteClass, addClass } = useData()
-
-  // Add Class State
-  const [isAddClassDialogOpen, setIsAddClassDialogOpen] = useState(false)
-  const [newClassName, setNewClassName] = useState("")
-  const [newClassLessonsPerWeek, setNewClassLessonsPerWeek] = useState("5")
+  const { classes, students, dailyLogs, isDataLoaded, updateClass, deleteClass } = useData()
 
   // Edit Class State
   const [classToEdit, setClassToEdit] = useState<Class | null>(null)
@@ -94,43 +87,6 @@ export function DashboardClient() {
     }
   }, [classToDelete])
   
-  const handleAddClassDialogOpenChange = (open: boolean) => {
-    if (open) {
-      setNewClassName("");
-      setNewClassLessonsPerWeek("5");
-    }
-    setIsAddClassDialogOpen(open);
-  }
-  
-  const handleAddClass = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const lessonsCount = parseInt(newClassLessonsPerWeek, 10)
-    if (!newClassName || isNaN(lessonsCount) || lessonsCount <= 0) {
-      toast({
-        title: "Missing Information",
-        description:
-          "Please provide a valid class name and number of weekly lessons.",
-        variant: "destructive",
-      })
-      return
-    }
-    const newClass: Omit<Class, 'id'> = {
-      name: newClassName,
-      lessonsPerWeek: lessonsCount,
-    }
-    try {
-      await addClass(newClass);
-      toast({
-        title: "Class Added",
-        description: `${newClassName} has been added.`,
-      })
-      setIsAddClassDialogOpen(false)
-    } catch (error) {
-      // The context handles the toast for the actual error
-      console.error("Failed to add class:", error);
-    }
-  }
-
   const getWeeklyEngagementScore = (studentId: string) => {
     const today = new Date()
     const dayOfWeek = today.getDay()
@@ -231,125 +187,77 @@ export function DashboardClient() {
         <div>
           <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground">
-            A high-level overview of your classes.
+            A high-level overview of your classes. Add new classes and students from the 'Students' page.
           </p>
         </div>
-        <Dialog open={isAddClassDialogOpen} onOpenChange={handleAddClassDialogOpenChange}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Class
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <form onSubmit={handleAddClass}>
-                <DialogHeader>
-                  <DialogTitle>Add New Class</DialogTitle>
-                  <DialogDescription>
-                    Enter the details for the new class. Click save when you're
-                    done.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="className" className="text-right">
-                      Name
-                    </Label>
-                    <Input
-                      id="className"
-                      placeholder="e.g., Period 5 - English"
-                      className="col-span-3"
-                      value={newClassName}
-                      onChange={(e) => setNewClassName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="lessonsPerWeek" className="text-right">
-                      Lessons/Week
-                    </Label>
-                    <Input
-                      id="lessonsPerWeek"
-                      type="number"
-                      min="1"
-                      placeholder="e.g., 5"
-                      className="col-span-3"
-                      value={newClassLessonsPerWeek}
-                      onChange={(e) => setNewClassLessonsPerWeek(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit">Save Class</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {classes.map((c) => {
-          const stats = getClassStats(c.id)
-          return (
-            <Card key={c.id} className="flex flex-col">
-              <CardHeader className="flex-row items-start justify-between">
-                <div>
-                  <CardTitle>{c.name}</CardTitle>
-                  <CardDescription>
-                    {stats.totalStudents} students enrolled
-                  </CardDescription>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">More options</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem onSelect={() => setClassToEdit(c)}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => setClassToDelete(c)}
-                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="flex items-center justify-between rounded-md border p-3">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-sm">Total Students</span>
+        {classes.length === 0 ? (
+          <p className="text-muted-foreground col-span-full text-center p-8">No classes found. Go to the 'Students' page to add your first class.</p>
+        ) : (
+          classes.map((c) => {
+            const stats = getClassStats(c.id)
+            return (
+              <Card key={c.id} className="flex flex-col">
+                <CardHeader className="flex-row items-start justify-between">
+                  <div>
+                    <CardTitle>{c.name}</CardTitle>
+                    <CardDescription>
+                      {stats.totalStudents} students enrolled
+                    </CardDescription>
                   </div>
-                  <span className="font-semibold">{stats.totalStudents}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-md border p-3">
-                  <div className="flex items-center gap-2">
-                    <UserCog className="h-5 w-5 text-destructive" />
-                    <span className="text-sm">At-Risk</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">More options</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem onSelect={() => setClassToEdit(c)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => setClassToDelete(c)}
+                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm">Total Students</span>
+                    </div>
+                    <span className="font-semibold">{stats.totalStudents}</span>
                   </div>
-                  <span className="font-semibold text-destructive">
-                    {stats.studentsWithWarnings}
-                  </span>
-                </div>
-              </CardContent>
-              <CardFooter className="mt-auto pt-0">
-                <Button asChild className="w-full">
-                  <Link href={`/dashboard/classes/${c.id}`}>
-                    Go to Class <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          )
-        })}
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div className="flex items-center gap-2">
+                      <UserCog className="h-5 w-5 text-destructive" />
+                      <span className="text-sm">At-Risk</span>
+                    </div>
+                    <span className="font-semibold text-destructive">
+                      {stats.studentsWithWarnings}
+                    </span>
+                  </div>
+                </CardContent>
+                <CardFooter className="mt-auto pt-0">
+                  <Button asChild className="w-full">
+                    <Link href={`/dashboard/classes/${c.id}`}>
+                      Go to Class <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+            )
+          })
+        )}
       </div>
 
       {/* Edit Class Dialog */}

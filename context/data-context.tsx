@@ -52,26 +52,6 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
-// Define no-op functions for the default context value
-const noOpPromise = () => Promise.resolve();
-const defaultContextValue: DataContextProps = {
-  classes: [],
-  students: [],
-  dailyLogs: [],
-  profilePicture: null,
-  isDataLoaded: false,
-  addClass: noOpPromise,
-  updateClass: noOpPromise,
-  deleteClass: noOpPromise,
-  addStudent: noOpPromise,
-  updateStudent: noOpPromise,
-  deleteStudent: noOpPromise,
-  saveDailyLogs: noOpPromise,
-  deleteStudentLogs: noOpPromise,
-  deleteClassLogs: noOpPromise,
-  updateProfilePicture: noOpPromise,
-};
-
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -83,9 +63,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const handleDbError = useCallback((error: Error, context: string) => {
     console.error(`Firestore error (${context}):`, error);
+    let description = `Could not perform action on ${context}. Please check your connection and refresh.`;
+    if (error.message.includes('permission-denied') || error.message.includes('PERMISSION_DENIED')) {
+      description = `Permission denied. Please check your Firestore security rules to allow writes for authenticated users. Context: ${context}`;
+    }
     toast({
       title: 'Database Error',
-      description: `Could not perform action on ${context}. Please check your connection and refresh.`,
+      description: description,
       variant: 'destructive',
     });
   }, [toast]);
@@ -93,7 +77,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (firebaseInitializationError) {
       console.error("Firebase initialization failed, cannot proceed.");
-      setIsDataLoaded(true); // Allow UI to render the error state
+      setIsDataLoaded(true);
       return;
     }
      if (!auth || !db) {
@@ -103,15 +87,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const unsubscribeFromAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user);
-      } else {
-        setCurrentUser(null);
+      setCurrentUser(user);
+      if (!user) {
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
         setProfilePicture(null);
-        setIsDataLoaded(true); // User is logged out, data is "loaded"
+        setIsDataLoaded(true);
       }
     });
 
@@ -119,7 +101,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (!currentUser || !db) {
+    if (!currentUser) {
       return; // Wait for user to be authenticated
     }
 
@@ -133,161 +115,188 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       return onSnapshot(q, (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
         setter(data);
-      }, (error) => handleDbError(error, `listening to ${collectionName}`));
+        setIsDataLoaded(true);
+      }, (error) => {
+          handleDbError(error, `listening to ${collectionName}`);
+          setIsDataLoaded(true);
+      });
     };
-
-    const unsubscribers: Unsubscribe[] = [
-      setupListener<Class>('classes', setClasses),
-      setupListener<Student>('students', setStudents),
-      setupListener<DailyLog>('dailyLogs', setDailyLogs),
-    ];
-
+    
     const profileUnsubscriber = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setProfilePicture(docSnap.data()?.profilePicture || null);
       }
-      setIsDataLoaded(true); // Mark data as loaded after the first successful profile read
     }, (error) => {
       handleDbError(error, 'user profile');
-      setIsDataLoaded(true);
     });
-    unsubscribers.push(profileUnsubscriber);
+
+    const classesUnsubscriber = setupListener<Class>('classes', setClasses);
+    const studentsUnsubscriber = setupListener<Student>('students', setStudents);
+    const dailyLogsUnsubscriber = setupListener<DailyLog>('dailyLogs', setDailyLogs);
 
     return () => {
-      unsubscribers.forEach(unsub => unsub());
+      profileUnsubscriber();
+      classesUnsubscriber();
+      studentsUnsubscriber();
+      dailyLogsUnsubscriber();
     };
   }, [currentUser, handleDbError]);
   
-  const performAction = useCallback(async (context: string, action: (user: User) => Promise<any>): Promise<void> => {
-    // currentUser from state is used, ensuring it's the right user.
-    if (!currentUser || !db) {
-      handleDbError(new Error("User not authenticated or DB not initialized."), context);
-      return Promise.reject(new Error("User not authenticated"));
-    }
+  const addClass = useCallback(async (newClass: Omit<Class, 'id'>) => {
+    if (!currentUser || !db) return;
     try {
-      await action(currentUser);
+      await addDoc(collection(db, 'users', currentUser.uid, 'classes'), newClass);
     } catch (e) {
-      handleDbError(e as Error, context);
-      throw e; // Re-throw to allow individual callers to handle if needed
+      handleDbError(e as Error, 'add class');
+    }
+  }, [currentUser, handleDbError]);
+
+  const updateClass = useCallback(async (id: string, updatedData: Partial<Class>) => {
+     if (!currentUser || !db) return;
+     try {
+       await updateDoc(doc(db, 'users', currentUser.uid, 'classes', id), updatedData);
+     } catch (e) {
+       handleDbError(e as Error, 'update class');
+     }
+  }, [currentUser, handleDbError]);
+
+  const deleteClass = useCallback(async (id: string) => {
+    if (!currentUser || !db) return;
+    try {
+        const batch = writeBatch(db);
+        const userRef = doc(db, 'users', currentUser.uid);
+        
+        batch.delete(doc(userRef, 'classes', id));
+        
+        const studentsQuery = query(collection(userRef, 'students'), where('classId', '==', id));
+        const studentDocs = await getDocs(studentsQuery);
+        const studentIds = studentDocs.docs.map(d => d.id);
+        studentDocs.forEach(d => batch.delete(d.ref));
+        
+        if (studentIds.length > 0) {
+          const studentIdChunks: string[][] = [];
+          for (let i = 0; i < studentIds.length; i += 30) {
+              studentIdChunks.push(studentIds.slice(i, i + 30));
+          }
+          for (const chunk of studentIdChunks) {
+            const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', 'in', chunk));
+            const logDocs = await getDocs(logsQuery);
+            logDocs.forEach(d => batch.delete(d.ref));
+          }
+        }
+        await batch.commit();
+    } catch(e) {
+        handleDbError(e as Error, 'delete class');
+    }
+  }, [currentUser, handleDbError]);
+
+  const addStudent = useCallback(async (newStudent: Omit<Student, 'id'>) => {
+     if (!currentUser || !db) return;
+     try {
+       await addDoc(collection(db, 'users', currentUser.uid, 'students'), newStudent);
+     } catch(e) {
+       handleDbError(e as Error, 'add student');
+     }
+  }, [currentUser, handleDbError]);
+
+  const updateStudent = useCallback(async (id: string, updatedData: Partial<Student>) => {
+    if (!currentUser || !db) return;
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid, 'students', id), updatedData);
+    } catch(e) {
+      handleDbError(e as Error, 'update student');
+    }
+  }, [currentUser, handleDbError]);
+
+  const deleteStudent = useCallback(async (id: string) => {
+    if (!currentUser || !db) return;
+    try {
+      const batch = writeBatch(db);
+      const userRef = doc(db, 'users', currentUser.uid);
+      batch.delete(doc(userRef, 'students', id));
+      const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', id));
+      const logDocs = await getDocs(logsQuery);
+      logDocs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    } catch(e) {
+      handleDbError(e as Error, 'delete student');
+    }
+  }, [currentUser, handleDbError]);
+
+ const saveDailyLogs = useCallback(async (logs: Record<string, any>, studentIdsInTable: string[], date: string) => {
+    if (!currentUser || !db || studentIdsInTable.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      const logsColRef = collection(db, 'users', currentUser.uid, 'dailyLogs');
+
+      const q = query(logsColRef, where('date', '==', date), where('studentId', 'in', studentIdsInTable));
+      const existingLogsSnap = await getDocs(q);
+      const existingLogsMap = new Map<string, string>();
+      existingLogsSnap.forEach(d => existingLogsMap.set(d.data().studentId, d.id));
+
+      studentIdsInTable.forEach(studentId => {
+          const logData = logs[studentId];
+          if (!logData) return;
+
+          const completeLogData = { ...logData, studentId, date };
+          const existingDocId = existingLogsMap.get(studentId);
+          
+          const docRef = existingDocId ? doc(logsColRef, existingDocId) : doc(logsColRef);
+          batch.set(docRef, completeLogData, { merge: true });
+      });
+      
+      await batch.commit();
+    } catch (e) {
+      handleDbError(e as Error, 'save daily logs');
     }
   }, [currentUser, handleDbError]);
 
 
-  const addClass = useCallback((newClass: Omit<Class, 'id'>) => performAction(
-    'add class',
-    (user) => addDoc(collection(db, 'users', user.uid, 'classes'), newClass)
-  ), [performAction]);
-
-  const updateClass = useCallback((id: string, updatedData: Partial<Class>) => performAction(
-    'update class',
-    (user) => updateDoc(doc(db, 'users', user.uid, 'classes', id), updatedData)
-  ), [performAction]);
-
-  const deleteClass = useCallback((id: string) => performAction('delete class', async (user) => {
-    if (!db) return;
-    const batch = writeBatch(db);
-    const userRef = doc(db, 'users', user.uid);
-    
-    batch.delete(doc(userRef, 'classes', id));
-    
-    const studentsQuery = query(collection(userRef, 'students'), where('classId', '==', id));
-    const studentDocs = await getDocs(studentsQuery);
-    const studentIds = studentDocs.docs.map(d => d.id);
-    studentDocs.forEach(d => batch.delete(d.ref));
-    
-    if (studentIds.length > 0) {
-      const studentIdChunks: string[][] = [];
-      for (let i = 0; i < studentIds.length; i += 30) {
-          studentIdChunks.push(studentIds.slice(i, i + 30));
-      }
-      for (const chunk of studentIdChunks) {
-        const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', 'in', chunk));
-        const logDocs = await getDocs(logsQuery);
-        logDocs.forEach(d => batch.delete(d.ref));
-      }
+  const deleteStudentLogs = useCallback(async (studentId: string) => {
+    if (!currentUser || !db) return;
+    try {
+      const batch = writeBatch(db);
+      const userRef = doc(db, 'users', currentUser.uid);
+      const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', studentId));
+      const logDocs = await getDocs(logsQuery);
+      logDocs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    } catch(e) {
+        handleDbError(e as Error, 'delete student logs');
     }
-    await batch.commit();
-  }), [performAction]);
+  }, [currentUser, handleDbError]);
 
-  const addStudent = useCallback((newStudent: Omit<Student, 'id'>) => performAction(
-    'add student',
-    (user) => addDoc(collection(db, 'users', user.uid, 'students'), newStudent)
-  ), [performAction]);
+  const deleteClassLogs = useCallback(async (classId: string) => {
+    if (!currentUser || !db) return;
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const studentsQuery = query(collection(userRef, 'students'), where('classId', '==', classId));
+      const studentDocs = await getDocs(studentsQuery);
+      const studentIds = studentDocs.docs.map(d => d.id);
 
-  const updateStudent = useCallback((id: string, updatedData: Partial<Student>) => performAction(
-    'update student',
-    (user) => updateDoc(doc(db, 'users', user.uid, 'students', id), updatedData)
-  ), [performAction]);
-
-  const deleteStudent = useCallback((id: string) => performAction('delete student', async (user) => {
-    if (!db) return;
-    const batch = writeBatch(db);
-    const userRef = doc(db, 'users', user.uid);
-    batch.delete(doc(userRef, 'students', id));
-    const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', id));
-    const logDocs = await getDocs(logsQuery);
-    logDocs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-  }), [performAction]);
-
- const saveDailyLogs = useCallback((logs: Record<string, any>, studentIdsInTable: string[], date: string) => performAction('save daily logs', async (user) => {
-    if (!db || studentIdsInTable.length === 0) return;
-    const batch = writeBatch(db);
-    const logsColRef = collection(db, 'users', user.uid, 'dailyLogs');
-
-    const q = query(logsColRef, where('date', '==', date), where('studentId', 'in', studentIdsInTable));
-    const existingLogsSnap = await getDocs(q);
-    const existingLogsMap = new Map<string, string>();
-    existingLogsSnap.forEach(d => existingLogsMap.set(d.data().studentId, d.id));
-
-    studentIdsInTable.forEach(studentId => {
-        const logData = logs[studentId];
-        if (!logData) return;
-
-        const completeLogData = { ...logData, studentId, date };
-        const existingDocId = existingLogsMap.get(studentId);
-        
-        const docRef = existingDocId ? doc(logsColRef, existingDocId) : doc(logsColRef);
-        batch.set(docRef, completeLogData, { merge: true });
-    });
-    
-    await batch.commit();
-  }), [performAction]);
-
-
-  const deleteStudentLogs = useCallback((studentId: string) => performAction('delete student logs', async (user) => {
-    if (!db) return;
-    const batch = writeBatch(db);
-    const userRef = doc(db, 'users', user.uid);
-    const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', '==', studentId));
-    const logDocs = await getDocs(logsQuery);
-    logDocs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-  }), [performAction]);
-
-  const deleteClassLogs = useCallback((classId: string) => performAction('delete class logs', async (user) => {
-    if (!db) return;
-    const userRef = doc(db, 'users', user.uid);
-    const studentsQuery = query(collection(userRef, 'students'), where('classId', '==', classId));
-    const studentDocs = await getDocs(studentsQuery);
-    const studentIds = studentDocs.docs.map(d => d.id);
-
-    if (studentIds.length > 0) {
-       for (let i = 0; i < studentIds.length; i += 30) {
-        const chunk = studentIds.slice(i, i + 30);
-        const batch = writeBatch(db);
-        const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', 'in', chunk));
-        const logDocs = await getDocs(logsQuery);
-        logDocs.forEach(d => batch.delete(d.ref));
-        await batch.commit();
+      if (studentIds.length > 0) {
+        for (let i = 0; i < studentIds.length; i += 30) {
+          const chunk = studentIds.slice(i, i + 30);
+          const batch = writeBatch(db);
+          const logsQuery = query(collection(userRef, 'dailyLogs'), where('studentId', 'in', chunk));
+          const logDocs = await getDocs(logsQuery);
+          logDocs.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
       }
+    } catch(e) {
+      handleDbError(e as Error, 'delete class logs');
     }
-  }), [performAction]);
+  }, [currentUser, handleDbError]);
 
-   const updateProfilePicture = useCallback((url: string | null) => performAction(
-    'update profile picture',
-    (user) => setDoc(doc(db, 'users', user.uid), { profilePicture: url }, { merge: true })
-  ), [performAction]);
+   const updateProfilePicture = useCallback(async (url: string | null) => {
+     if (!currentUser || !db) return;
+     try {
+       await setDoc(doc(db, 'users', currentUser.uid), { profilePicture: url }, { merge: true });
+     } catch(e) {
+       handleDbError(e as Error, 'update profile picture');
+     }
+  }, [currentUser, handleDbError]);
 
 
   const value = {
@@ -322,5 +331,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    
