@@ -95,10 +95,17 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       
       // User logs in
       setCurrentUser(user);
-      setIsDataLoaded(false); // Start loading data for the new user
       
       const userDocRef = doc(db, 'users', user.uid);
       const subscriptions: Unsubscribe[] = [];
+      let pendingListeners = 4; // classes, students, dailyLogs, profile
+
+      const onDataLoaded = () => {
+          pendingListeners--;
+          if (pendingListeners === 0) {
+              setIsDataLoaded(true);
+          }
+      };
 
       const setupListener = <T,>(
         collectionName: string,
@@ -108,7 +115,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return onSnapshot(q, (snapshot) => {
           const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
           setter(data);
-        }, (error) => handleDbError(error, `listen to ${collectionName}`));
+          onDataLoaded();
+        }, (error) => {
+            handleDbError(error, `listen to ${collectionName}`);
+            onDataLoaded();
+        });
       };
       
       const profileUnsubscriber = onSnapshot(userDocRef, (docSnap) => {
@@ -119,19 +130,21 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           setDoc(userDocRef, { createdAt: new Date() }, { merge: true })
             .catch(e => handleDbError(e, 'create user profile'));
         }
-      }, (error) => handleDbError(error, 'user profile'));
+        onDataLoaded();
+      }, (error) => {
+        handleDbError(error, 'user profile');
+        onDataLoaded();
+      });
       
       subscriptions.push(profileUnsubscriber);
       subscriptions.push(setupListener<Class>('classes', setClasses));
       subscriptions.push(setupListener<Student>('students', setStudents));
       subscriptions.push(setupListener<DailyLog>('dailyLogs', setDailyLogs));
       
-      // Mark data as loaded only after all listeners are attached.
-      setIsDataLoaded(true);
-
       // Return a cleanup function that runs when the user logs out or component unmounts
       return () => {
         subscriptions.forEach(unsub => unsub());
+        setIsDataLoaded(false); // Reset loading state on logout
       };
     });
 
@@ -272,8 +285,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateProfilePicture = async (url: string | null) => {
+    if (!currentUser) return;
     try {
-      await setDoc(getDocRef('users', currentUser!.uid), { profilePicture: url }, { merge: true });
+      await setDoc(getDocRef('users', currentUser.uid), { profilePicture: url }, { merge: true });
     } catch (e) { handleDbError(e as Error, 'update profile picture'); }
   };
   
