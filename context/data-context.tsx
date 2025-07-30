@@ -82,18 +82,18 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const unsubscribeFromAuth = onAuthStateChanged(auth, (user) => {
-      // User logs out or is not logged in
+      // User logs out or is not logged in initially
       if (!user) {
         setCurrentUser(null);
         setClasses([]);
         setStudents([]);
         setDailyLogs([]);
         setProfilePicture(null);
-        setIsDataLoaded(true); // Allow UI to show logged-out state
+        setIsDataLoaded(true); // CRITICAL FIX: Mark as loaded ONLY when we know there's no user.
         return;
       }
       
-      // User logs in
+      // User logs in or session is restored
       setCurrentUser(user);
       
       const userDocRef = doc(db, 'users', user.uid);
@@ -152,33 +152,33 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribeFromAuth();
   }, [handleDbError]);
 
-  const getCollectionRef = (collectionName: string) => {
+  const getCollectionRef = useCallback((collectionName: string) => {
       if (!currentUser || !db) {
           throw new Error('User not authenticated or DB not available.');
       }
       return collection(db, 'users', currentUser.uid, collectionName);
-  };
+  }, [currentUser]);
   
-  const getDocRef = (collectionName: string, docId: string) => {
+  const getDocRef = useCallback((collectionName: string, docId: string) => {
     if (!currentUser || !db) {
         throw new Error('User not authenticated or DB not available.');
     }
     return doc(db, 'users', currentUser.uid, collectionName, docId);
-  }
+  }, [currentUser]);
 
-  const addClass = async (newClass: Omit<Class, 'id'>) => {
+  const addClass = useCallback(async (newClass: Omit<Class, 'id'>) => {
     try {
       await addDoc(getCollectionRef('classes'), newClass);
     } catch (e) { handleDbError(e as Error, 'add class'); }
-  };
+  }, [getCollectionRef, handleDbError]);
 
-  const updateClass = async (id: string, updatedData: Partial<Class>) => {
+  const updateClass = useCallback(async (id: string, updatedData: Partial<Class>) => {
     try {
       await updateDoc(getDocRef('classes', id), updatedData);
     } catch (e) { handleDbError(e as Error, 'update class'); }
-  };
+  }, [getDocRef, handleDbError]);
 
-  const deleteClass = async (id: string) => {
+  const deleteClass = useCallback(async (id: string) => {
     if (!currentUser || !db) return;
     try {
         const batch = writeBatch(db);
@@ -202,21 +202,21 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
         await batch.commit();
     } catch (e) { handleDbError(e as Error, 'delete class and associated data'); }
-  };
+  }, [currentUser, handleDbError]);
 
-  const addStudent = async (newStudent: Omit<Student, 'id'>) => {
+  const addStudent = useCallback(async (newStudent: Omit<Student, 'id'>) => {
     try {
       await addDoc(getCollectionRef('students'), newStudent);
     } catch (e) { handleDbError(e as Error, 'add student'); }
-  };
+  }, [getCollectionRef, handleDbError]);
 
-  const updateStudent = async (id: string, updatedData: Partial<Student>) => {
+  const updateStudent = useCallback(async (id: string, updatedData: Partial<Student>) => {
     try {
       await updateDoc(getDocRef('students', id), updatedData);
     } catch (e) { handleDbError(e as Error, 'update student'); }
-  };
+  }, [getDocRef, handleDbError]);
 
-  const deleteStudent = async (id: string) => {
+  const deleteStudent = useCallback(async (id: string) => {
     if (!currentUser || !db) return;
     try {
       const batch = writeBatch(db);
@@ -227,9 +227,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       logDocs.forEach(d => batch.delete(d.ref));
       await batch.commit();
     } catch (e) { handleDbError(e as Error, 'delete student and associated logs'); }
-  };
+  }, [currentUser, handleDbError]);
 
-  const saveDailyLogs = async (logs: Record<string, any>, studentIdsInTable: string[], date: string) => {
+  const saveDailyLogs = useCallback(async (logs: Record<string, any>, studentIdsInTable: string[], date: string) => {
     if (!currentUser || !db) return;
     try {
       if (studentIdsInTable.length === 0) return;
@@ -250,9 +250,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       });
       await batch.commit();
     } catch (e) { handleDbError(e as Error, 'save daily logs'); }
-  };
+  }, [getCollectionRef, handleDbError, currentUser]);
 
-  const deleteStudentLogs = async (studentId: string) => {
+  const deleteStudentLogs = useCallback(async (studentId: string) => {
      if (!currentUser || !db) return;
     try {
       const batch = writeBatch(db);
@@ -262,9 +262,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       logDocs.forEach(d => batch.delete(d.ref));
       await batch.commit();
     } catch (e) { handleDbError(e as Error, 'delete student logs'); }
-  };
+  }, [currentUser, handleDbError]);
 
-  const deleteClassLogs = async (classId: string) => {
+  const deleteClassLogs = useCallback(async (classId: string) => {
     if (!currentUser || !db) return;
     try {
       const userRef = doc(db, 'users', currentUser.uid);
@@ -282,14 +282,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     } catch(e) { handleDbError(e as Error, 'delete class logs'); }
-  };
+  }, [currentUser, handleDbError]);
 
-  const updateProfilePicture = async (url: string | null) => {
+  const updateProfilePicture = useCallback(async (url: string | null) => {
     if (!currentUser) return;
     try {
-      await setDoc(getDocRef('users', currentUser.uid), { profilePicture: url }, { merge: true });
+      await setDoc(doc(db, 'users', currentUser.uid), { profilePicture: url }, { merge: true });
     } catch (e) { handleDbError(e as Error, 'update profile picture'); }
-  };
+  },[currentUser, handleDbError]);
   
   const value = {
     classes,
@@ -323,3 +323,5 @@ export const useData = () => {
   }
   return context;
 };
+
+    
